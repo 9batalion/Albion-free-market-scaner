@@ -30,7 +30,7 @@ const PROFILE = {
 };
 
 const el = id => document.getElementById(id);
-const state = {items:[],itemById:new Map(),raw:[],opportunities:[],portfolio:null,stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,marketStats:new Map(),lang:'pl'};
+const state = {items:[],itemById:new Map(),raw:[],opportunities:[],portfolio:null,stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,marketStats:new Map(),lang:'pl',scanDiagnostics:null};
 let db=null,settingsTimer=null,autoTimer=null;
 
 const locale = () => state.lang==='en'?'en-US':'pl-PL';
@@ -212,8 +212,28 @@ async function loadItems(){
   if(cached.length){setItems(cached);el('dbStatus').textContent=fmt(cached.length);return;}throw lastErr||new Error('Nie udało się pobrać bazy przedmiotów');
 }
 async function pingApi(){try{await fetchJson(`${API}/api/v2/stats/prices/T4_BAG.json?locations=Caerleon&qualities=1`,9000);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';return true;}catch{state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?'błąd/CORS':'offline';el('apiStatus').style.color='var(--bad)';return false;}}
-function priority(id){let p=0;if(/_(BAG|CAPE|MOUNT|POTION|MEAL|FOOD|ORE|METALBAR|WOOD|PLANKS|HIDE|LEATHER|FIBER|CLOTH|ROCK|STONEBLOCK)/.test(id))p+=5;if(/_(MAIN_|2H_|ARMOR_|HEAD_|SHOES_|OFF_)/.test(id))p+=4;const t=+(/^T(\d)/.exec(id)?.[1]||0);p+=t;if(id.includes('@'))p+=2;return p;}
-function buildItemSelection(){const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,limit=clamp(+el('scanLimit').value||500,10,2500),cats=new Set(selectedCategories());if(!cats.size)return[];let a=state.items.filter(it=>{const id=it.id,base=id.split('@')[0],t=/^T(\d)_/.exec(base)?.[1],e=id.includes('@')?id.split('@').pop():'0';if(tier!=='all'&&t!==tier)return false;if(ench!=='all'&&e!==ench)return false;if(!cats.has(categoryForItem(id)))return false;const names=[it.name,it.namePl,it.nameEn,id].filter(Boolean).map(x=>String(x).toLowerCase());if(q&&!names.some(x=>x.includes(q)))return false;return true;});if(!q)a.sort((a,b)=>priority(b.id)-priority(a.id));return a.slice(0,limit);}
+function itemTierEnchant(id){const base=String(id).split('@')[0],t=+( /^T(\d)_/.exec(base)?.[1]||0),e=String(id).includes('@')?+(String(id).split('@').pop()||0):0;return{tier:t,enchant:e};}
+function liquidItemPriority(id){
+  const {tier,enchant}=itemTierEnchant(id),tierScore=({4:8,5:10,6:11,7:8,8:6})[tier]||0,enchScore=({0:9,1:7,2:5,3:3,4:1})[enchant]||0;
+  let cat=0;if(/_(ORE|WOOD|HIDE|FIBER|ROCK|METALBAR|PLANKS|LEATHER|CLOTH|STONEBLOCK)/.test(id))cat=7;else if(/_(MEAL|FOOD|POTION)/.test(id))cat=6;else if(/_(BAG|CAPE)/.test(id))cat=5;else if(/_(MAIN_|2H_|ARMOR_|HEAD_|SHOES_|OFF_)/.test(id))cat=4;else if(/MOUNT/.test(id))cat=3;
+  return tierScore+enchScore+cat;
+}
+function balancedItemTake(items,limit){
+  const tierOrder={6:0,5:1,4:2,7:3,8:4};
+  const buckets=new Map();
+  for(const it of items){const te=itemTierEnchant(it.id),cat=categoryForItem(it.id),key=`${cat}|${te.tier}`;if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(it);}
+  for(const arr of buckets.values())arr.sort((a,b)=>liquidItemPriority(b.id)-liquidItemPriority(a.id)||a.id.localeCompare(b.id));
+  const keys=[...buckets.keys()].sort((a,b)=>{const [ca,ta]=a.split('|'),[cb,tb]=b.split('|');const ti=(tierOrder[+ta]??9)-(tierOrder[+tb]??9);return ti||ca.localeCompare(cb);});
+  const out=[];let moved=true;
+  while(out.length<limit&&moved){moved=false;for(const k of keys){const arr=buckets.get(k);if(arr?.length){out.push(arr.shift());moved=true;if(out.length>=limit)break;}}}
+  return out;
+}
+function buildItemSelection(){
+  const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,limit=clamp(+el('scanLimit').value||500,10,2500),cats=new Set(selectedCategories());if(!cats.size)return[];
+  let a=state.items.filter(it=>{const id=it.id,{tier:t,enchant:e}=itemTierEnchant(id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(id)))return false;const names=[it.name,it.namePl,it.nameEn,id].filter(Boolean).map(x=>String(x).toLowerCase());if(q&&!names.some(x=>x.includes(q)))return false;return true;});
+  if(q){a.sort((x,y)=>liquidItemPriority(y.id)-liquidItemPriority(x.id)||x.id.localeCompare(y.id));return a.slice(0,limit);}
+  return balancedItemTake(a,limit);
+}
 function batchesByUrl(items,locations,qualities){const out=[];let batch=[];const fixed=`${API}/api/v2/stats/prices/.json?locations=${encodeURIComponent(locations.join(','))}&qualities=${encodeURIComponent(qualities.join(','))}`;for(const it of items){const test=[...batch,it.id],len=fixed.length+encodeURIComponent(test.join(',')).length;if(len>3400&&batch.length){out.push(batch);batch=[it];}else batch=test;}if(batch.length)out.push(batch);return out;}
 function normalizePriceRow(r,source='api'){return {...r,item_id:String(r.item_id),city:String(r.city),quality:+r.quality||1,sell_price_min:+r.sell_price_min||0,buy_price_max:+r.buy_price_max||0,key:dbKeyPrice(r),cachedAt:now(),_source:source};}
 async function persistPriceRows(rows){const normalized=rows.map(r=>normalizePriceRow(r,'api'));await dbPutMany('prices',normalized);return normalized;}
@@ -282,31 +302,37 @@ function recalcScore(o,cfg){
   o.score=clamp(prof.confidenceWeight*o.confidence+prof.profitWeight*pScore+prof.valueWeight*value+prof.liquidityWeight*liq);
   o.model=modelLabel(o);return o;
 }
-function calcMode(rowsByItem,itemMap,mode,cfg){
-  const result=[];
+function calcMode(rowsByItem,itemMap,mode,cfg,diag){
+  const result=[],md=diag.modes[mode]={items:0,qualities:0,pairs:0,rejectSame:0,rejectStale:0,rejectProfit:0,rejectRoi:0,acceptedPairs:0,signals:0};
   for(const [itemId,rows] of rowsByItem){
+    md.items++;
     const cityAsks=rows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>+r.sell_price_min),cityMedian=median(cityAsks);
-    const buys=rows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>=cfg.minBuy).map(r=>({...r,_ageSell:ageHours(r.sell_price_min_date)}));
-    const destinations=mode==='instant'?rows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destPrice:+r.buy_price_max,_destAge:ageHours(r.buy_price_max_date),_destDate:r.buy_price_max_date})):rows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destAge:ageHours(r.sell_price_min_date),_destDate:r.sell_price_min_date}));
-    for(const b of buys){for(const d of destinations){
-      if(cfg.excludeSame&&b.city===d.city)continue;if(+b.quality!==+d.quality)continue;if(cfg.freshBoth&&(b._ageSell>cfg.maxAge||d._destAge>cfg.maxAge))continue;
-      const buy=Math.round(+b.sell_price_min),gross=mode==='relist'?Math.max(1,Math.floor(+d._destPrice)):Math.round(+d._destPrice);if(!(buy>0&&gross>0))continue;
-      const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup,capitalPerUnit=buy+cfg.transport+setup,profit=gross-fees-buy-cfg.transport,roi=profit/Math.max(1,capitalPerUnit)*100;
-      if(profit<cfg.minProfit||roi<cfg.minRoi)continue;
-      const base=baseConfidence(b,d,mode,cfg),item=itemMap.get(itemId)||{id:itemId,name:itemId,namePl:itemId,nameEn:itemId};
-      const cityDiscount=Number.isFinite(cityMedian)&&cityMedian>0?(1-buy/cityMedian)*100:0;
-      const cityValue=Number.isFinite(cityMedian)&&cityMedian>0?sourceValueScore(buy,{median:cityMedian}):50;
-      base.components.value=cityValue;
-      if(cityDiscount>65)base.warnings.push('cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość');
-      const o={schemaVersion:7,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,roi,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,capitalPerUnit,sourceDate:b.sell_price_min_date,destDate:d._destDate,age:base.age,confidence:base.confidence,components:base.components,warnings:base.warnings,cityMedian,cityDiscount,mode,history:null,calculatedAt:now(),sourceRow:b,destRow:d};
-      recalcScore(o,cfg);result.push(o);
-    }}
+    const byQ=new Map();for(const r of rows){const q=+r.quality||1;if(!byQ.has(q))byQ.set(q,[]);byQ.get(q).push(r);}
+    for(const qRows of byQ.values()){
+      md.qualities++;
+      const buys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>=cfg.minBuy).map(r=>({...r,_ageSell:ageHours(r.sell_price_min_date)}));
+      const destinations=mode==='instant'?qRows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destPrice:+r.buy_price_max,_destAge:ageHours(r.buy_price_max_date),_destDate:r.buy_price_max_date})):qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destAge:ageHours(r.sell_price_min_date),_destDate:r.sell_price_min_date}));
+      for(const b of buys){for(const d of destinations){
+        md.pairs++;
+        if(cfg.excludeSame&&b.city===d.city){md.rejectSame++;continue;}
+        if(cfg.freshBoth&&(b._ageSell>cfg.maxAge||d._destAge>cfg.maxAge)){md.rejectStale++;continue;}
+        const buy=Math.round(+b.sell_price_min),gross=mode==='relist'?Math.max(1,Math.floor(+d._destPrice)):Math.round(+d._destPrice);if(!(buy>0&&gross>0))continue;
+        const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup,capitalPerUnit=buy+cfg.transport+setup,profit=gross-fees-buy-cfg.transport,roi=profit/Math.max(1,capitalPerUnit)*100;
+        if(profit<cfg.minProfit){md.rejectProfit++;continue;}if(roi<cfg.minRoi){md.rejectRoi++;continue;}
+        const base=baseConfidence(b,d,mode,cfg),item=itemMap.get(itemId)||{id:itemId,name:itemId,namePl:itemId,nameEn:itemId};
+        const cityDiscount=Number.isFinite(cityMedian)&&cityMedian>0?(1-buy/cityMedian)*100:0,cityValue=Number.isFinite(cityMedian)&&cityMedian>0?sourceValueScore(buy,{median:cityMedian}):50;base.components.value=cityValue;
+        if(cityDiscount>65)base.warnings.push('cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość');
+        const o={schemaVersion:7,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,roi,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,capitalPerUnit,sourceDate:b.sell_price_min_date,destDate:d._destDate,age:base.age,confidence:base.confidence,components:base.components,warnings:base.warnings,cityMedian,cityDiscount,mode,history:null,calculatedAt:now(),sourceRow:b,destRow:d};
+        recalcScore(o,cfg);result.push(o);md.acceptedPairs++;
+      }}
+    }
   }
-  const best=new Map();for(const o of result){const k=o.itemId+'|'+o.quality+'|'+o.mode;if(!best.has(k)||best.get(k).score<o.score)best.set(k,o);}return [...best.values()];
+  const best=new Map();for(const o of result){const k=o.itemId+'|'+o.quality+'|'+o.mode;if(!best.has(k)||best.get(k).score<o.score)best.set(k,o);}md.signals=best.size;return [...best.values()];
 }
 function calcOpportunities(rowsByItem,itemMap,mode,cfg){
-  if(mode==='smart')return[...calcMode(rowsByItem,itemMap,'instant',cfg),...calcMode(rowsByItem,itemMap,'relist',cfg)];
-  return calcMode(rowsByItem,itemMap,mode,cfg);
+  const diag={modes:{},itemsWithRows:rowsByItem.size};
+  let out;if(mode==='smart')out=[...calcMode(rowsByItem,itemMap,'instant',cfg,diag),...calcMode(rowsByItem,itemMap,'relist',cfg,diag)];else out=calcMode(rowsByItem,itemMap,mode,cfg,diag);
+  state.scanDiagnostics={...(state.scanDiagnostics||{}),...diag};return out;
 }
 async function saveOpportunities(ops){await dbClear('opportunities');const cleaned=ops.map(({sourceRow,destRow,...o})=>o);await dbPutMany('opportunities',cleaned);}
 
@@ -408,21 +434,40 @@ async function enrichTop(limit,manual=false){
   await saveOpportunities(state.opportunities);el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Przelicz modele historii','Recalculate history models');render();await updateDbInfo();if(manual)setProgress(100,state.lang==='en'?`Recalculated history models for top ${top.length}.`:`Przeliczono modele historii dla top ${top.length}.`);
 }
 
+function diagnosticTotals(){
+  const d=state.scanDiagnostics||{},m=Object.values(d.modes||{}),sum=k=>m.reduce((a,x)=>a+(x[k]||0),0);return{pairs:sum('pairs'),same:sum('rejectSame'),stale:sum('rejectStale'),profit:sum('rejectProfit'),roi:sum('rejectRoi'),accepted:sum('acceptedPairs'),signals:sum('signals')};
+}
+function renderScanDiagnostics(){
+  const d=state.scanDiagnostics;if(!d||!el('scanDiagnostics'))return;const t=diagnosticTotals(),shown=filteredResults().length;
+  const msg=state.lang==='en'?`Selected ${fmt(d.selectedItems||0)} / matching ${fmt(d.matchingItems||0)} • API rows ${fmt(d.apiRows||0)} • item IDs with data ${fmt(d.itemsWithRows||0)} • pairs ${fmt(t.pairs)} • stale rejected ${fmt(t.stale)} • low profit ${fmt(t.profit)} • low ROI ${fmt(t.roi)} • signals ${fmt(state.opportunities.length)} • shown ${fmt(shown)}`:`Wybrano ${fmt(d.selectedItems||0)} z ${fmt(d.matchingItems||0)} pasujących • rekordy API ${fmt(d.apiRows||0)} • itemy z danymi ${fmt(d.itemsWithRows||0)} • pary ${fmt(t.pairs)} • odrzucone za wiek ${fmt(t.stale)} • niski zysk ${fmt(t.profit)} • niskie ROI ${fmt(t.roi)} • sygnały ${fmt(state.opportunities.length)} • pokazane ${fmt(shown)}`;
+  el('scanDiagnostics').textContent=msg;
+  if(el('kpiItemsMeta'))el('kpiItemsMeta').textContent=state.lang==='en'?`${fmt(d.apiRows||0)} API rows`:`${fmt(d.apiRows||0)} rekordów API`;
+  if(!shown&&el('emptyState')){
+    let hint=state.lang==='en'?'No opportunities after current filters. ':'Brak okazji po obecnych filtrach. ';
+    if(!d.apiRows)hint+=state.lang==='en'?'The API returned no price rows for this selection.':'API nie zwróciło rekordów cen dla tego wyboru.';
+    else if(t.stale>Math.max(t.profit,t.roi))hint+=state.lang==='en'?'Most candidate pairs were rejected by price freshness. Temporarily try 48–72 h or disable “both prices fresh”.':'Najwięcej par odpadło przez świeżość cen. Testowo ustaw 48–72 h albo wyłącz „obie ceny muszą być świeże”.';
+    else if(t.profit+t.roi>0)hint+=state.lang==='en'?'Most pairs fail profit/ROI thresholds. For a diagnostic scan set min profit and ROI to 0.':'Większość par nie przechodzi progu zysku/ROI. Do testu ustaw min. zysk i ROI na 0.';
+    else if(state.opportunities.length&&!shown)hint+=state.lang==='en'?'Signals exist but are hidden by Confidence/volume/result filters.':'Sygnały istnieją, ale ukrywają je filtry Confidence/wolumenu/wyników.';
+    el('emptyState').textContent=hint;
+  }
+}
+function countMatchingItems(){const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,cats=new Set(selectedCategories());return state.items.filter(it=>{const {tier:t,enchant:e}=itemTierEnchant(it.id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(it.id)))return false;if(q){const names=[it.name,it.namePl,it.nameEn,it.id].filter(Boolean).map(x=>String(x).toLowerCase());if(!names.some(x=>x.includes(q)))return false;}return true;}).length;}
+
 async function scan(opts={}){
   if(el('scanBtn').disabled&&!opts.auto)return;const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert(tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
-  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}
+  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};
   const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];state.portfolio=null;renderPortfolio();el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,state.lang==='en'?`${opts.auto?'Auto-scan':'Start'}: ${fmt(items.length)} items, ${batches.length} batches…`:`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów, ${batches.length} partii…`);
   const fresh=[];let errors=0;
   for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const ids=batches[i].map(x=>x.id).join(','),url=`${API}/api/v2/stats/prices/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?locations=${encodeURIComponent(markets.join(','))}&qualities=${qualities.join(',')}`;try{const j=await fetchJson(url,18000);if(Array.isArray(j))fresh.push(...j);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}setProgress((i+1)/batches.length*72,state.lang==='en'?`API ${i+1}/${batches.length} • records: ${fmt(fresh.length)}${errors?' • errors: '+errors:''}`:`API ${i+1}/${batches.length} • rekordy: ${fmt(fresh.length)}${errors?' • błędy: '+errors:''}`);if(i<batches.length-1)await sleep(210);}
-  const normalizedFresh=fresh.length?await persistPriceRows(fresh):[];if(normalizedFresh.length)await updateMarketStats(normalizedFresh);else state.marketStats=new Map((await dbGetAll('market_stats')).map(x=>[x.key,x]));
+  const normalizedFresh=fresh.length?await persistPriceRows(fresh):[];state.scanDiagnostics.apiRows=normalizedFresh.length;if(normalizedFresh.length)await updateMarketStats(normalizedFresh);else state.marketStats=new Map((await dbGetAll('market_stats')).map(x=>[x.key,x]));
   let cached=[];if(el('useCache').checked&&(errors||!normalizedFresh.length))cached=await cachedRowsFor(items,markets,qualities);const rows=mergeRows(normalizedFresh,cached);state.raw=rows;
   if(!rows.length){el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,tr('Brak danych API i brak lokalnego cache.','No API data and no local cache.'));await updateDbInfo();return;}
   const map=new Map(items.map(x=>[x.id,x])),byItem=new Map();for(const r of rows){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}
-  const cfg=cfgFromUI();state.opportunities=calcOpportunities(byItem,map,el('mode').value,cfg);await saveOpportunities(state.opportunities);render();
+  const cfg=cfgFromUI();state.opportunities=calcOpportunities(byItem,map,el('mode').value,cfg);await saveOpportunities(state.opportunities);render();renderScanDiagnostics();
   const depth=+el('analysisDepth').value||0;if(depth>0&&!state.stop){setProgress(83,state.lang==='en'?`Initial ${fmt(state.opportunities.length)} opportunities. Running historical models…`:`Wstępnie ${fmt(state.opportunities.length)} okazji. Uruchamiam modele historyczne…`);await enrichTop(Math.min(depth,state.opportunities.length));}
   if(!state.stop&&el('autoPortfolio')?.checked){setProgress(98,tr('Optymalizacja portfela według budżetu i ryzyka…','Optimizing portfolio by budget and risk…'));await buildPortfolio({skipEnrich:false,silent:true});}
   await dbPut('scan_runs',{ts:now(),items:items.length,markets,qualities,apiRows:normalizedFresh.length,cacheRows:cached.length,errors,opportunities:state.opportunities.length,analysisDepth:depth,portfolioPositions:state.portfolio?.positions?.length||0,auto:!!opts.auto});
-  el('kpiItems').textContent=fmt(items.length);el('lastScan').textContent=new Date().toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});el('scanBtn').disabled=false;el('stopBtn').disabled=true;el('validateBtn').disabled=state.opportunities.length===0;setProgress(100,state.stop?tr('Skan przerwany.','Scan stopped.'):(state.lang==='en'?`Done: ${fmt(state.opportunities.length)} signals • models ${depth?'historical + local':'local'} • API ${fmt(normalizedFresh.length)}${cached.length?' • cache '+fmt(cached.length):''}.`:`Gotowe: ${fmt(state.opportunities.length)} sygnałów • modele ${depth?'historyczne + lokalne':'lokalne'} • API ${fmt(normalizedFresh.length)}${cached.length?' • cache '+fmt(cached.length):''}.`));await updateDbInfo();render();await saveSettings();
+  el('kpiItems').textContent=fmt(items.length);el('lastScan').textContent=new Date().toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});el('scanBtn').disabled=false;el('stopBtn').disabled=true;el('validateBtn').disabled=state.opportunities.length===0;renderScanDiagnostics();setProgress(100,state.stop?tr('Skan przerwany.','Scan stopped.'):(state.lang==='en'?`Done: ${fmt(state.opportunities.length)} signals • models ${depth?'historical + local':'local'} • API ${fmt(normalizedFresh.length)}${cached.length?' • cache '+fmt(cached.length):''}.`:`Gotowe: ${fmt(state.opportunities.length)} sygnałów • modele ${depth?'historyczne + lokalne':'lokalne'} • API ${fmt(normalizedFresh.length)}${cached.length?' • cache '+fmt(cached.length):''}.`));await updateDbInfo();render();await saveSettings();
 }
 
 
@@ -481,7 +526,7 @@ function allocatePortfolio(candidates,pcfg){
 }
 function renderPortfolio(){
   const pf=state.portfolio,body=el('portfolioBody'),empty=el('portfolioEmpty');if(!body)return;
-  if(!pf?.positions?.length){body.innerHTML='';empty.style.display='block';el('portfolioExportBtn').disabled=true;['pfBudget','pfCapital','pfFree','pfProfit','pfExpected'].forEach(id=>el(id).textContent='0');el('pfRoi').textContent='0%';el('portfolioStatus').textContent=tr('Nie zbudowano portfela.','Portfolio not built.');return;}
+  if(!pf?.positions?.length){body.innerHTML='';empty.style.display='block';el('portfolioExportBtn').disabled=true;['pfBudget','pfCapital','pfFree','pfProfit','pfExpected'].forEach(id=>el(id).textContent='0');el('pfRoi').textContent='0%';el('portfolioStatus').textContent=tr('Nie zbudowano portfela.','Portfolio not built.');if(el('portfolioNote'))el('portfolioNote').textContent=tr('Najpierw wykonaj skan i zbuduj portfel z aktualnych sygnałów.','Run a scan first and build a portfolio from current signals.');return;}
   empty.style.display='none';el('portfolioExportBtn').disabled=false;const s=pf.summary;
   el('pfBudget').textContent=fmt(s.budget);el('pfCapital').textContent=fmt(s.capital);el('pfFree').textContent=fmt(s.free);el('pfProfit').textContent='+'+fmt(s.nominalProfit);el('pfExpected').textContent='+'+fmt(s.modelProfit);el('pfRoi').textContent=pct(s.modelRoi);
   el('portfolioStatus').textContent=state.lang==='en'?`${s.positions} positions • confidence ${s.weightedConfidence.toFixed(0)}/100 • volume-aware allocation • max route ${s.maxRouteShare.toFixed(0)}%`:`${s.positions} pozycji • confidence ${s.weightedConfidence.toFixed(0)}/100 • alokacja wg wolumenu • trasa max ${s.maxRouteShare.toFixed(0)}%`;
@@ -517,6 +562,7 @@ function exitText(o){const d=o.volume?.qty?.exitDaysNormal;if(!Number.isFinite(d
 function render(){
   const a=filteredResults();el('emptyState').style.display=a.length?'none':'block';el('resultsBody').innerHTML=a.map((o,i)=>`<tr><td><button class="star ${state.watched.has(o.itemId)?'on':''}" data-watch="${esc(o.itemId)}">★</button></td><td><div class="itemcell"><img loading="lazy" src="${itemIcon(o.itemId,o.quality)}" alt=""><div><div class="itemname">${esc(displayOpportunityName(o))}</div><div class="itemid">${esc(o.itemId)} • ${qualityName[o.quality]||o.quality}</div></div></div></td><td>${modelTags(o)}</td><td class="route"><b>${esc(marketLabel(o.source))}</b> → <b>${esc(marketLabel(o.dest))}</b></td><td>${fmt(o.buy)}</td><td>${fmt(o.sell)}</td><td class="${o.profit>=0?'profit':'loss'}">+${fmt(o.profit)}</td><td class="${o.roi>=0?'profit':'loss'}">${pct(o.roi)}</td><td>${fmt(o.riskProfit)}</td><td>${volumeCell(o)}</td><td><b>${(o.volume?.liquidityScore||0).toFixed(0)}</b><div class="scorebar"><i style="width:${clamp(o.volume?.liquidityScore||0)}%"></i></div></td><td>${qtyCell(o)}</td><td>${exitText(o)}</td><td>${fmt(o.volume?.profitPerDayModel||0)}</td><td class="${o.age<=3?'fresh':o.age<=24?'stale':'old'}">${ageText(o.age)}</td><td><b>${(o.confidence||0).toFixed(0)}</b><div class="scorebar"><i style="width:${clamp(o.confidence||0)}%"></i></div></td><td><b>${(o.score||0).toFixed(0)}</b></td><td>${flag(o)}</td><td><button class="btn" data-detail="${i}">${tr('Szczegóły','Details')}</button></td></tr>`).join('');
   const bestProfit=a.reduce((m,x)=>Math.max(m,x.profit),0),bestRoi=a.reduce((m,x)=>Math.max(m,x.roi),0),avgAge=a.length?mean(a.map(x=>x.age)):NaN,avgC=a.length?mean(a.map(x=>x.confidence||0)):NaN,withVol=a.filter(x=>x.volume),avgVol=withVol.length?mean(withVol.map(x=>x.volume.effectiveDaily||0)):NaN,avgLiq=withVol.length?mean(withVol.map(x=>x.volume.liquidityScore||0)):NaN;el('kpiCount').textContent=fmt(a.length);el('kpiProfit').textContent=fmt(bestProfit);el('kpiRoi').textContent=pct(bestRoi);el('kpiAge').textContent=a.length?ageText(avgAge):'—';el('kpiConfidence').textContent=a.length?avgC.toFixed(0)+'/100':'—';if(el('kpiVolume'))el('kpiVolume').textContent=withVol.length?avgVol.toLocaleString(locale(),{maximumFractionDigits:1}):'—';if(el('kpiLiquidity'))el('kpiLiquidity').textContent=withVol.length?avgLiq.toFixed(0)+'/100':'—';
+  renderScanDiagnostics();
   document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=async()=>{const id=b.dataset.watch;state.watched.has(id)?state.watched.delete(id):state.watched.add(id);await saveWatch();render();});document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(a[+b.dataset.detail]));
 }
 function compCard(label,v,desc=''){return `<div class="detail-card"><small>${esc(label)}</small><b>${Number.isFinite(v)?v.toFixed(0)+'/100':'—'}</b>${desc?`<small>${esc(desc)}</small>`:''}</div>`;}

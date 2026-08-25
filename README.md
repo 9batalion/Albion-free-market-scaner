@@ -1,3 +1,15 @@
+# Albion Europe Market Scanner v5.2.1 — Diagnostics & Balanced Scan
+
+Poprawka po audycie zgłoszenia „0 okazji przy 500 przeskanowanych itemach”.
+
+Najważniejsze zmiany:
+- zbalansowany dobór limitu itemów między kategoriami i tierami T4–T8,
+- usunięcie błędnego preferowania wysokich tierów i enchantów przy limicie 500,
+- licznik realnych rekordów API, itemów z danymi i powodów odrzucania par,
+- diagnostyka: stale / niski zysk / niskie ROI / sygnały / wyniki po filtrach,
+- poprawione zerowanie opisu starego portfela,
+- odświeżony cache PWA.
+
 # Albion Europe Market Scanner v5.2 — Volume & Liquidity Intelligence
 
 Statyczna aplikacja PWA pod GitHub Pages. Łączy się bezpośrednio z europejskim API Albion Online Data Project i zapisuje dane lokalnie w IndexedDB.

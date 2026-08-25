@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Albion Europe Market Scanner v5.2 — Volume & Liquidity Intelligence</title>
+  <title>Albion Europe Market Scanner v5.2.1.1 — Diagnostics & Balanced Scan</title>
   <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -25,7 +25,7 @@
 <div class="app">
   <div class="topbar">
     <div class="brand">
-      <h1>Albion Europe Market Scanner v5.2 — Volume Intelligence</h1>
+      <h1>Albion Europe Market Scanner v5.2.1 — Volume Intelligence</h1>
       <p>Market Intelligence • Europe • AODP API • Volume 1/3/7/14/30d • Liquidity Score • Portfolio Optimizer • PL/EN • IndexedDB • GitHub Pages / PWA</p>
     </div>
     <div class="status">
@@ -49,7 +49,7 @@
           <div class="field"><label>Jakość</label><select id="quality"><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option><option value="all">Wszystkie</option></select></div>
           <div class="field"><label>Limit przedmiotów</label><input id="scanLimit" type="number" min="10" max="2500" step="10" value="500"></div>
         </div>
-        <div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Duży limit = więcej zapytań i dłuższy skan.</div>
+        <div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Limit jest łączny dla wszystkich zaznaczonych kategorii; v5.2.1 dobiera go równomiernie między kategoriami i tierami zamiast preferować głównie drogie T8/enchant.</div>
       </div>
 
       <div class="section">
@@ -163,7 +163,7 @@
 
       <button id="scanBtn" class="btn primary" style="width:100%">Skanuj okazje</button>
       <div class="progress"><div id="progressBar"></div></div>
-      <div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div>
+      <div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div><div class="tiny" id="scanDiagnostics" style="margin-top:7px;padding:8px;border:1px solid #263244;border-radius:8px;background:#0b1119">Diagnostyka skanu: —</div>
       <div class="actions">
         <button class="btn" id="validateBtn" disabled>Przelicz modele historii</button>
         <button class="btn" id="stopBtn" disabled>Przerwij</button>
@@ -175,7 +175,7 @@
         <div class="panel kpi"><span>Okazje</span><strong id="kpiCount">0</strong><small>po filtrach</small></div>
         <div class="panel kpi"><span>Najlepszy zysk</span><strong id="kpiProfit">0</strong><small>srebra / szt.</small></div>
         <div class="panel kpi"><span>Najlepszy ROI</span><strong id="kpiRoi">0%</strong><small>po opłatach</small></div>
-        <div class="panel kpi"><span>Przeskanowano</span><strong id="kpiItems">0</strong><small>przedmiotów</small></div>
+        <div class="panel kpi"><span>Wybrane do skanu</span><strong id="kpiItems">0</strong><small id="kpiItemsMeta">0 rekordów API</small></div>
         <div class="panel kpi"><span>Średnia świeżość</span><strong id="kpiAge">—</strong><small>starsza z dwóch cen</small></div>
         <div class="panel kpi"><span>Śr. confidence</span><strong id="kpiConfidence">—</strong><small>jakość sygnału 0–100</small></div>
         <div class="panel kpi"><span>Śr. wolumen</span><strong id="kpiVolume">—</strong><small>est. szt. / dzień</small></div>
