@@ -1,35 +1,45 @@
-# Model wolumenu v5.4.1
+# Model wolumenu v5.4.3 — Target Volume
 
-Wolumen pochodzi z 7/30-dniowej historii sell-side AODP. Dni bez danych w pełnym oknie są liczone jako 0.
+Wolumen pochodzi z 7/30-dniowej historii sell-side AODP i jest liczony osobno dla rynku źródłowego i rynku docelowego. Dni bez danych w pełnym oknie są liczone jako 0.
 
-Dla transportu zwykłe miasto → zwykłe miasto:
+## Konserwatywny wolumen dzienny
 
-`trade volume/day = min(source 7d avg, destination 7d avg)`
+Dla każdego miasta:
 
-Plan hurtowy:
+`safe daily = min(7d average daily volume, 7d median daily volume)`
 
-`share = selected volume share % / 100`
+Jeżeli handel występował rzadziej niż przez połowę ostatnich 7 dni, mediana może wynieść 0. Wtedy skaner nie sugeruje transportu hurtowego tylko na podstawie pojedynczego aktywnego dnia.
 
-`volume cap = floor(trade volume/day × planned days × share)`
+## Źródło
 
-`budget cap = największe qty, dla którego buy cost + transport + order-level setup fee <= budget`
+`source cap = floor(source safe daily)`
 
-`planned units = min(volume cap, budget cap, max units)`
+Jest to historyczna skala rynku źródłowego, a nie aktualna liczba sztuk dostępnych po najniższej cenie. Dla jednego kursu skaner nie zakłada więcej niż około jednego konserwatywnego dnia aktywności źródła.
 
-`estimated sell-through days = planned units / (trade volume/day × share)`
+## Miasto docelowe
 
-Opłaty całej partii:
+`destination cap = floor(destination safe daily × selected market share × planned sell days)`
 
-`revenue = qty × sell price`
+Profile udziału rynku:
 
-`tax total = ceil(revenue × tax%)`
+- Bezpieczny: 10%
+- Normalny: 20%
+- Agresywny: 35%
+- Maksymalny: 50%
+- Własny: 1–100%
 
-`setup total = ceil(revenue × setup%)` dla relistingu
+## Sugerowana partia „Zabierz”
 
-`trip profit = revenue - tax total - setup total - buy cost - transport total`
+`take = min(source cap, destination cap, budget cap, max units)`
 
-Jeśli `volume cap < 1`, plan wynosi 0 sztuk — nie jest wymuszane minimum 1.
+`budget cap` jest wyliczany z pełnego kosztu partii, wraz z kosztem zakupu, transportem i order-level setup fee.
 
-Black Market nie ma porównywalnego sell-history wolumenu aktualnego buy orderu, dlatego plan hurtowy nie udaje znajomości jego bieżącej głębokości.
+## Czas sprzedaży
 
-Model nie interpretuje historycznego wolumenu jako aktualnej głębokości order booka.
+`estimated sell-through days = take / (destination safe daily × selected market share)`
+
+## Ważne ograniczenie
+
+Publiczne dane AODP nie są pełnym aktualnym order bookiem. `source cap` i `destination cap` są konserwatywnymi estymacjami skali rynku, nie gwarancją dostępności lub sprzedaży konkretnej liczby sztuk po wskazanej cenie.
+
+Dla Black Market bieżąca głębokość buy orderu nie jest wyprowadzana z sell-side historii, więc sugerowana partia pozostaje niedostępna.

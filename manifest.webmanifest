@@ -1,12 +1,12 @@
 {
-  "name": "Albion Europe Market Scanner v5.4.2 Connection Fix",
-  "short_name": "Albion Market v5.4.2",
+  "name": "Albion Europe Market Scanner v5.4.3 Target Volume",
+  "short_name": "Albion Market v5.4.3",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b0e13",
   "theme_color": "#0b0e13",
-  "description": "Albion Online Europe market scanner showing profitable buy/sell price routes and historical volume only, with PL/EN and IndexedDB.",
+  "description": "Albion Online Europe market scanner showing profitable buy/sell routes with separate source and destination historical volume plus suggested transport quantity, with PL/EN and IndexedDB.",
   "icons": [
     {
       "src": "./icon.svg",
