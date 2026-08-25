@@ -1,73 +1,82 @@
-# Albion Europe Market Scanner v5.2.4 — Cena i Wolumen
+# Albion Europe Market Scanner v5.2.5 — Cena i Wolumen
 
-Wersja uproszczona pod GitHub Pages/PWA.
+Statyczna aplikacja PWA pod GitHub Pages. Rdzeń jest celowo prosty: **cena kupna, cena sprzedaży, zysk netto i historyczny wolumen**.
 
-## Zasada działania
+## Co trafia do wyników
 
-Skaner pokazuje **wszystkie znalezione zyskowne trasy** pomiędzy wybranymi marketami. Główna tabela zawiera tylko informacje potrzebne do handlu:
+Dla każdej wybranej jakości i marketu skaner tworzy wszystkie trasy z dodatnim zyskiem netto po:
 
-- przedmiot i jakość,
-- market zakupu,
-- aktualna cena zakupu (`sell_price_min`),
-- market sprzedaży,
-- cena sprzedaży / docelowa cena wystawienia,
-- zysk netto na sztuce po podatku, setup fee i zadanym koszcie transportu,
-- historyczny wolumen rynku zakupu i sprzedaży,
-- konserwatywny wolumen handlowy,
-- wolumen 7 i 30 dni,
-- `zysk × wolumen / dzień`.
+- podatku sprzedaży,
+- setup fee przy relistingu,
+- opcjonalnym koszcie transportu.
 
-## Jedyne filtry wyników
+Nie ma limitu top-N tras na przedmiot. Confidence, Opportunity Score, Momentum, portfolio i modele ryzyka nie uczestniczą w selekcji ani rankingu.
 
-1. **Min. zysk netto / szt.**
-2. **Min. wolumen / dzień**
+## Dwa filtry
 
-Confidence, Opportunity Score, Liquidity Score, Momentum, ROI i podobne modele nie są używane do odrzucania wyników i nie są prezentowane w głównej tabeli.
+1. minimalny zysk netto / szt.,
+2. minimalny wolumen handlowy / dzień.
+
+Sortowanie: `zysk × wolumen`, zysk/szt., wolumen/dzień, cena kupna i cena sprzedaży.
 
 ## Wolumen
 
-Po pobraniu bieżących cen aplikacja automatycznie pobiera historię AODP dla wszystkich itemów/marketów występujących w zyskownych trasach. Zapytania historyczne są grupowane, aby nie wykonywać osobnego requestu dla każdej trasy.
+Aplikacja pobiera około 32 dni historii AODP i liczy 30 pełnych dni. Brak dnia sprzedaży w historii = `0`.
 
-Dla zwykłej trasy miasto → miasto:
+Dla zwykłej trasy:
 
-`buyVolumeDay = średni wolumen 7d rynku zakupu`
+- `buyVolumeDay = średni wolumen 7d marketu zakupu`,
+- `sellVolumeDay = średni wolumen 7d marketu sprzedaży`,
+- `tradeVolumeDay = min(buyVolumeDay, sellVolumeDay)`,
+- `profitVolumeDaily = netProfitPerUnit × tradeVolumeDay`.
 
-`sellVolumeDay = średni wolumen 7d rynku sprzedaży`
+Historia AODP jest historią sell-side i nie oznacza głębokości aktualnego buy orderu.
 
-`tradeVolumeDay = min(buyVolumeDay, sellVolumeDay)`
+### Błąd API wolumenu
 
-Analogicznie dla wolumenu 7 i 30 dni wykorzystywana jest mniejsza z wartości obu marketów.
+v5.2.5 rozróżnia **poprawną pustą odpowiedź** od **błędu requestu**:
 
-Dni bez rekordu sprzedaży w oknie historycznym liczone są jako `0`.
+- poprawna odpowiedź bez rekordu może potwierdzić `0` wolumenu i zostać zapisana w IndexedDB,
+- timeout/CORS/HTTP error/offline **nie zapisuje pustego placeholdera**,
+- jeżeli istnieje starszy cache, może zostać pokazany z oznaczeniem `(cache)`,
+- jeżeli cache nie istnieje, użytkownik widzi `błąd API` / `API error`,
+- następny skan ponawia request zamiast traktować awarię jako zero przez 4h.
 
-### Black Market
+## Skalowanie
 
-Publiczna historia AODP obejmuje historyczne sell orders, a nie pełną bieżącą głębokość buy orderów. Dlatego dla Black Market aplikacja pokazuje cenę buy orderu i wolumen rynku źródłowego, natomiast docelowy wolumen handlowy pozostawia jako brak zamiast tworzyć sztuczną wartość.
+Wszystkie znalezione trasy są zachowywane, ale tabela renderuje je stronicami: 50 / 100 / 250 wierszy. Dzięki temu kilka tysięcy tras nie jest jednocześnie wstawiane do DOM.
 
-## Poprawki audytu v5.2.3
+Pobieranie historii wolumenu działa w maksymalnie dwóch workerach z ograniczeniem tempa requestów. Zapytania są nadal grupowane per market i wiele itemów w jednym URL.
 
-### 1. cityMedian per jakość
+## Black Market
 
-Mediana cen miast jest liczona wewnątrz grupy jakości (`qRows`). Normal, Good, Outstanding, Excellent i Masterpiece nie są już mieszane.
+Black Market może być celem natychmiastowej sprzedaży do buy orderu. Nie jest źródłem zakupu ani celem relistingu. Publiczne dane nie dają porównywalnego docelowego wolumenu Black Market, więc skaner nie wymyśla tej wartości.
 
-### 2. Model Profit/day
+## local.db
 
-Starszy pomocniczy kod modelowy został poprawiony zgodnie z audytem:
+IndexedDB przechowuje:
 
-`profitPerDayModel = profitPerDayNominal × Confidence / 100`
+- items,
+- prices,
+- history,
+- watchlist,
+- settings,
+- opportunities,
+- scan_runs.
 
-W v5.2.4 ta metryka nie jest używana w głównej tabeli ani do filtrowania, ale implementacja pozostaje matematycznie poprawna.
+Stare magazyny `market_stats` i `portfolios` są usuwane podczas migracji DB v11.
 
-## Inne zmiany
+## Testy
 
-- domyślna jakość: **Wszystkie**,
-- brak limitu „top 5 tras” na item — zachowywana jest każda dodatnia trasa,
-- portfolio i scoringi usunięte z głównego interfejsu,
-- wolumen liczony automatycznie dla wszystkich zyskownych tras,
-- sortowanie: zysk × wolumen, zysk/szt., wolumen, cena zakupu, cena sprzedaży,
-- PL/EN i IndexedDB pozostają,
-- Service Worker nie cache'uje requestów do zewnętrznego AODP API.
+Uruchom:
+
+```bash
+node tests/financial-tests.js
+node tests/volume-model-tests.js
+node tests/manual-gate-v5.2.5-tests.js
+node tests/pagination-tests.js
+```
 
 ## GitHub Pages
 
-Wrzuć zawartość katalogu do repozytorium i włącz GitHub Pages dla gałęzi `main` / root. Aplikacja nie wymaga backendu.
+Wrzuć zawartość katalogu do repozytorium i włącz Pages dla `main` / root. Backend nie jest wymagany.

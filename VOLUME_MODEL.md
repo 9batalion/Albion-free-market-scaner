@@ -1,43 +1,31 @@
-# Volume Model v5.2.4 — prosty model
+# Volume Model v5.2.5
 
 ## Źródło
 
-Historia AODP, `time-scale=24`, zakres około 32 dni. Model wykorzystuje 30 pełnych dni i nie zawyża średniej dniem bieżącym.
+AODP history, `time-scale=24`, zakres ok. 32 dni. Do statystyk używane są pełne dni przed bieżącym dniem.
 
 ## Okna
 
-Dla każdego rynku i jakości powstają wartości:
+`1d / 3d / 7d / 14d / 30d`.
 
-- 1 dzień,
-- 3 dni,
-- 7 dni,
-- 14 dni,
-- 30 dni.
+Dzień bez sprzedaży jest liczony jako `0`, dzięki czemu średnia nie jest średnią wyłącznie z aktywnych dni.
 
-Brak dnia w historii = `0` sztuk.
+## Wartości w tabeli
 
-## Wartości pokazywane użytkownikowi
+Dla marketu źródłowego i docelowego:
 
-Dla zwykłej trasy:
+- średni wolumen 7 dni,
+- wolumen handlowy/d = minimum z obu marketów,
+- wolumen 7 dni = minimum z sum 7d,
+- wolumen 30 dni = minimum z sum 30d,
+- zysk × wolumen/d = zysk netto na sztuce × wolumen handlowy/d.
 
-`buyVolumeDay = source.avg7`
+Dla Black Market docelowy wolumen handlowy pozostaje niedostępny.
 
-`sellVolumeDay = destination.avg7`
+## Semantyka błędów
 
-`tradeVolumeDay = min(source.avg7, destination.avg7)`
+Stan `0` i stan `API error` są różne.
 
-`tradeVolume7 = min(source.total7, destination.total7)`
+`0` wolumenu można zapisać wyłącznie po poprawnej odpowiedzi AODP, w której dany item/jakość nie wystąpiły lub historia ma zerowy obrót. Wyjątek sieciowy nigdy nie tworzy zerowego placeholdera.
 
-`tradeVolume30 = min(source.total30, destination.total30)`
-
-## Ranking
-
-Domyślnie:
-
-`profitVolumeDaily = netProfitPerUnit × tradeVolumeDay`
-
-Nie jest to prognoza gwarantowanego zarobku. To proste zestawienie ceny z historycznym obrotem.
-
-## Ograniczenie danych
-
-Historia AODP jest historią sell-side. W szczególności nie jest pełną głębokością aktualnego buy orderu. Dla Black Market nie tworzymy sztucznego docelowego wolumenu.
+Jeżeli odświeżenie się nie uda, istniejący cache może być pokazany jako `(cache)`. Bez cache widoczny jest `błąd API`.
