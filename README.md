@@ -1,10 +1,30 @@
-# Albion Europe Market Scanner v5.4.7 — Dobra luksusowe i sortowanie czasu
+# Albion Europe Market Scanner v5.4.8 — stała wartość dóbr luksusowych
 
-Naprawiono kategorię `Dobra luksusowe`. Przedmioty te mają identyfikatory `TREASURE_...`, a nie standardowe identyfikatory `T4_–T8_`, dlatego poprzedni filtr odrzucał je przed wysłaniem zapytań do AODP. v5.4.7 rozpoznaje 21 dóbr luksusowych z rodzin Knowledge, Silverware, Decorative, Ceremonial, Tribal, Ritual i Avalon. Są dostępne przy ustawieniu `Tier = Wszystkie`.
+## Najważniejsza zmiana v5.4.8
+
+Dobra luksusowe mają teraz osobny model. Skaner nie szuka dla nich zmiennej ceny sprzedaży w AODP. Z porównywanych marketów wybiera **najtańszą ofertę zakupu**, pokazuje jej dokładny czas odczytu i automatycznie przypisuje stałe miejsce oraz wartość sprzedaży danego dobra.
+
+- Martlock: Knowledge — 1 000 / 5 000 / 25 000,
+- Lymhurst: Silverware — 1 000 / 5 000 / 25 000,
+- Fort Sterling: Decorative — 1 000 / 5 000 / 25 000,
+- Thetford: Ceremonial — 1 000 / 5 000 / 25 000,
+- Bridgewatch: Tribal — 1 000 / 5 000 / 25 000,
+- Caerleon: Ritual — 1 000 / 5 000 / 25 000,
+- dowolne Królewskie Miasto: Avalon — 10 000 / 50 000 / 250 000.
+
+Miasto docelowe wybrane w konfiguracji nie nadpisuje reguły dobra. `Miasto startowe` nadal może ograniczyć miejsce zakupu; przy ustawieniu `Dowolne` program wybiera najtańsze zaznaczone miasto. Dla dóbr wystarczy zaznaczyć jeden market zakupu. Wynik odejmuje podatek od sprzedaży i wpisany koszt transportu, ale nie nalicza setup fee.
+
+Cena sprzedaży jest opisana jako `stała cena w grze • bez odczytu AODP`. Sortowanie świeżości oraz obu kolumn cenowych używa dla dobra czasu oferty zakupu, ponieważ tylko ona pochodzi z AODP i może się zestarzeć. Stały skup nie ogranicza wielkości partii; estymacja `Zabierz` jest ograniczana skalą rynku zakupu, budżetem oraz limitem sztuk.
+
+Szczegóły zmiany: `AUDIT-V5.4.8-LUXURY-FIXED-VALUE.md`.
+
+## Funkcje odziedziczone z v5.4.7
+
+Naprawiono kategorię `Dobra luksusowe`. Przedmioty te mają identyfikatory `TREASURE_...`, a nie standardowe identyfikatory `T4_–T8_`, dlatego poprzedni filtr odrzucał je przed wysłaniem zapytań do AODP. v5.4.8 rozpoznaje 21 dóbr luksusowych z rodzin Knowledge, Silverware, Decorative, Ceremonial, Tribal, Ritual i Avalon. Są dostępne przy ustawieniu `Tier = Wszystkie`.
 
 Kliknięcie nagłówka `Cena kupna` sortuje teraz według czasu odczytu ceny zakupu, a kliknięcie `Cena sprzedaży` — według czasu odczytu ceny sprzedaży. Pierwsze kliknięcie pokazuje najnowsze odczyty, drugie odwraca kolejność. Wysokość ceny nie jest kryterium tych dwóch kolumn.
 
-Szczegóły zmiany: `AUDIT-V5.4.7-LUXURY-TIME-SORT.md`.
+Szczegóły zmiany: `AUDIT-V5.4.8-LUXURY-TIME-SORT.md`.
 
 ## Funkcje odziedziczone z v5.4.6
 
