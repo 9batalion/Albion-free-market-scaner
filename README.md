@@ -1,88 +1,100 @@
-# Albion Europe Market Scanner v5.1 — Audited
+# Albion Europe Market Scanner v5.2 — Volume & Liquidity Intelligence
 
-Wersja po audycie obliczeń: poprawione parsowanie czasu AODP jako UTC, ROI liczone względem realnego kapitału wejścia, całkowitoliczbowa cena relistingu, normalizacja 14-dniowego wolumenu, realne użycie anomaly/crossed penalties oraz bardziej przejrzysty confidence-weighted profit.
+Statyczna aplikacja PWA pod GitHub Pages. Łączy się bezpośrednio z europejskim API Albion Online Data Project i zapisuje dane lokalnie w IndexedDB.
 
-# Albion Europe Market Scanner v5 — Portfolio Intelligence
+## Najważniejsza zmiana w v5.2
 
-Statyczna aplikacja PWA przygotowana pod GitHub Pages. Nie wymaga backendu. Łączy się bezpośrednio z europejskim API Albion Online Data Project i przechowuje własną pamięć rynku w IndexedDB.
+Wolumen i płynność są teraz pełnoprawną częścią modelu okazji oraz Portfolio Optimizer.
 
-## Co nowego w v5
+Aplikacja pobiera do ok. 32 dni dziennej historii AODP (`time-scale=24`) i wylicza wolumen dla pełnych okien:
 
-### Portfolio Optimizer
-Po skanie aplikacja może automatycznie zbudować portfel zakupów dla podanego budżetu, np. 5 000 000 silver. Model nie wybiera wyłącznie najwyższego ROI. Bierze pod uwagę:
+- 1 dzień,
+- 3 dni,
+- 7 dni,
+- 14 dni,
+- 30 dni.
 
-- Confidence Score,
-- Opportunity Score,
-- zysk i ROI po opłatach,
-- świeżość notowań,
-- historyczną płynność,
-- limit liczby sztuk wynikający z płynności,
-- limit kapitału na jeden przedmiot,
-- limit kapitału na jedną trasę,
-- maksymalną liczbę pozycji,
-- profil ryzyka,
-- rezerwę gotówkową.
+Brak rekordu danego dnia jest traktowany jako 0, dzięki czemu średnia dzienna nie jest zawyżana tylko przez aktywne dni.
 
-Portfel pokazuje kolejność zakupów, liczbę sztuk, potrzebny kapitał, zysk nominalny oraz zysk modelowy ważony jakością sygnału.
+## Nowe metryki
 
-> Ważne: publiczne AODP nie udostępnia pełnej, bieżącej głębokości order booka. Rekomendowana liczba sztuk jest ostrożną estymacją na podstawie historii wolumenu, a nie informacją o aktualnej liczbie sztuk dostępnych po danej cenie.
+Dla przeanalizowanej okazji wyliczane są:
 
-### Ograniczanie koncentracji
-Domyślnie:
-- 10% budżetu pozostaje jako rezerwa,
-- maks. 20% inwestowalnego budżetu trafia w jeden item + quality,
-- maks. 40% inwestowalnego budżetu trafia na jedną trasę,
-- maks. 12 pozycji,
-- maks. 25 sztuk na jedną pozycję.
+- `Volume/day` — efektywny dzienny wolumen używany przez model,
+- `Liquidity Score 0–100`,
+- regularność handlu,
+- trend wolumenu,
+- stabilność wolumenu,
+- `Safe Qty`,
+- `Normal Qty`,
+- `Aggressive Qty`,
+- szacowany czas wyjścia z pozycji,
+- nominalny `Profit/day`,
+- `Model Profit/day` ważony Confidence Score.
 
-Wszystkie wartości można zmienić w UI.
+## Jak liczony jest wolumen
 
-### Estymacja płynności
-Limit sztuk wykorzystuje średni historyczny wolumen sell orders z AODP, horyzont płynności i profil ryzyka. Dla instant arbitrage limit jest dodatkowo obniżany, ponieważ historyczny wolumen sell nie pokazuje głębokości aktualnego buy orderu.
+Historia AODP dotyczy sell history. Dlatego:
 
-### Kapitał wymagany
-Dla natychmiastowego arbitrażu kapitał / szt. obejmuje cenę zakupu i ustawiony koszt transportu. Dla relistingu uwzględnia również setup fee, które trzeba zapłacić przy wystawianiu zlecenia.
+- dla relistingu wykorzystywana jest płynność źródła i celu, a ograniczeniem jest słabszy z dwóch rynków;
+- dla sprzedaży natychmiastowej wolumen celu jest wyłącznie proxy ogólnej płynności rynku — nie oznacza głębokości aktualnego buy orderu;
+- dla Black Market używany jest ostrożny współczynnik oparty na rynku źródłowym.
 
-## Modele okazji z v3
+Publiczne AODP nie udostępnia pełnej aktualnej głębokości order booka, dlatego rekomendowana liczba sztuk jest estymacją.
 
-- **Instant arbitrage** — zakup po `sell_price_min` i sprzedaż do `buy_price_max` w innym markecie.
-- **Black Market** — Black Market jest wyłącznie celem natychmiastowej sprzedaży.
-- **Relist spread** — zakup, transport i własny sell order w innym mieście.
-- **City gap** — cena źródłowa wyraźnie poniżej mediany innych miast.
-- **Mean reversion** — cena źródłowa poniżej 14-dniowej mediany z oceną płynności.
-- **Anomaly checks** — kary za ekstremalne odstępstwa, skrzyżowane lub stare notowania.
+## Liquidity Score
 
-## Confidence Score 0–100
+Score uwzględnia:
 
-Heurystyczna ocena jakości sygnału złożona m.in. ze świeżości, spreadu, lokalnej historii aktualizacji, płynności, zmienności i zgodności z historią AODP.
+- średni wolumen 7 dni,
+- udział aktywnych dni,
+- stabilność wolumenu,
+- trend 3 dni względem 14 dni.
 
-## Opportunity Score 0–100
+Wysoki pojedynczy dzień nie wystarcza do uzyskania wysokiej oceny.
 
-Łączy Confidence, ROI, zysk bezwzględny i ocenę wartości ceny źródłowej. Wagi zależą od profilu: konserwatywnego, zbalansowanego albo agresywnego.
+## Opportunity Score
 
-## local.db / IndexedDB
+Po analizie historii Liquidity Score ma dużą wagę w Opportunity Score:
 
-Baza `albion_europe_market_local_db` ma wersję 4 i przechowuje:
+- Conservative: 30% płynność,
+- Balanced: 25% płynność,
+- Aggressive: 24% płynność.
 
-- `items` — baza przedmiotów,
-- `prices` — ostatnie ceny,
-- `history` — 14-dniowa historia,
-- `market_stats` — lokalnie uczone profile aktualizacji rynku,
-- `opportunities` — ostatnie sygnały,
-- `portfolios` — ostatni zbudowany portfel,
-- `watchlist`,
-- `settings`,
-- `scan_runs`.
+Pozostałe składniki to Confidence, zysk/ROI i ocena wartości ceny.
 
-Backup DB i import obejmują również portfel.
+## Portfolio Optimizer v5.2
+
+Portfolio wykorzystuje teraz rekomendacje Safe / Normal / Aggressive zależnie od profilu ryzyka oraz ustawionego horyzontu płynności.
+
+Pozycja bez sensownego limitu wolumenowego nie jest dodawana do portfela.
+
+Priorytet pozycji uwzględnia również `Model Profit/day`, aby premiować szybszy obrót kapitału zamiast samego wysokiego ROI.
+
+## Filtry wolumenu
+
+W UI można ustawić:
+
+- minimalny wolumen / dzień,
+- minimalny wolumen 7 dni,
+- minimalny Liquidity Score,
+- maksymalny czas wyjścia,
+- wymóg wykonania analizy wolumenu.
+
+Można też sortować wyniki według wolumenu, płynności, czasu wyjścia i Model Profit/day.
+
+## IndexedDB
+
+Baza `albion_europe_market_local_db` ma wersję 7. Dotychczasowe magazyny danych pozostają, a cache historii zawiera teraz 32-dniowy zakres używany do obliczeń 30-dniowych.
 
 ## GitHub Pages
 
-Wrzuć pliki do repozytorium i włącz:
+Wrzuć zawartość katalogu do repozytorium i włącz:
 
 `Settings → Pages → Deploy from a branch → main / (root)`
 
-Pliki:
+Pliki wymagane do działania:
+
 - `index.html`
 - `app.js`
 - `service-worker.js`
@@ -91,15 +103,6 @@ Pliki:
 - `icon.svg`
 - `.nojekyll`
 
-Autoskan i przebudowa portfela działają, gdy strona/PWA jest otwarta. GitHub Pages nie uruchamia JavaScriptu po całkowitym zamknięciu aplikacji.
+## Ważne ograniczenie
 
-
-## v5 — Kategorie i PL/EN
-
-- rozwijany filtr kategorii stosowany przed pobraniem cen z API,
-- grupy nadrzędne (np. Zbroje / Armor) oraz podkategorie (Hełmy, Pancerze, Buty),
-- wielokrotny wybór kategorii oraz skróty Wszystkie / Wyczyść / Tylko ekwipunek,
-- zapamiętywanie wyboru kategorii w IndexedDB,
-- pełny przełącznik interfejsu Polski / English zapamiętywany lokalnie,
-- nazwy przedmiotów wykorzystują polską lub angielską lokalizację z ao-bin-dumps,
-- wyszukiwarka rozpoznaje zarówno polskie, jak i angielskie nazwy przedmiotów.
+Wolumen historyczny opisuje wykonany handel historyczny. Nie gwarantuje, że aktualny order istnieje ani że po aktualnie widocznej cenie dostępna jest rekomendowana liczba sztuk. Większe transakcje warto zweryfikować w grze.
