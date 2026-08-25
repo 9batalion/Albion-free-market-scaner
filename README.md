@@ -1,8 +1,8 @@
-# Albion Europe Market Scanner v4 — Portfolio Intelligence
+# Albion Europe Market Scanner v5 — Portfolio Intelligence
 
 Statyczna aplikacja PWA przygotowana pod GitHub Pages. Nie wymaga backendu. Łączy się bezpośrednio z europejskim API Albion Online Data Project i przechowuje własną pamięć rynku w IndexedDB.
 
-## Co nowego w v4
+## Co nowego w v5
 
 ### Portfolio Optimizer
 Po skanie aplikacja może automatycznie zbudować portfel zakupów dla podanego budżetu, np. 5 000 000 silver. Model nie wybiera wyłącznie najwyższego ROI. Bierze pod uwagę:
@@ -88,3 +88,14 @@ Pliki:
 - `.nojekyll`
 
 Autoskan i przebudowa portfela działają, gdy strona/PWA jest otwarta. GitHub Pages nie uruchamia JavaScriptu po całkowitym zamknięciu aplikacji.
+
+
+## v5 — Kategorie i PL/EN
+
+- rozwijany filtr kategorii stosowany przed pobraniem cen z API,
+- grupy nadrzędne (np. Zbroje / Armor) oraz podkategorie (Hełmy, Pancerze, Buty),
+- wielokrotny wybór kategorii oraz skróty Wszystkie / Wyczyść / Tylko ekwipunek,
+- zapamiętywanie wyboru kategorii w IndexedDB,
+- pełny przełącznik interfejsu Polski / English zapamiętywany lokalnie,
+- nazwy przedmiotów wykorzystują polską lub angielską lokalizację z ao-bin-dumps,
+- wyszukiwarka rozpoznaje zarówno polskie, jak i angielskie nazwy przedmiotów.
