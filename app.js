@@ -180,7 +180,7 @@ function translateDynamic(s){
 }
 function applyLanguage(lang,persist=true){
   state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
-  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.4.1 — Calculation Fix':'Albion Europe Market Scanner v5.4.1 — Poprawione obliczenia';
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.4.2 — Connection Fix':'Albion Europe Market Scanner v5.4.2 — Poprawione połączenie';
   if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, peleryna…','e.g. Bag, T6_BAG, cape…');
   if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
   const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
@@ -564,9 +564,108 @@ function render(){
 function openDetail(o){
   el('detailTitle').textContent=`${displayOpportunityName(o)} — ${marketLabel(o.source)} → ${marketLabel(o.dest)}`;const v=o.volume||{};
   const bulk=o.bulk||bulkPlanFor(o,cfgFromUI()),r=o.reality||{},gc=r.grade==='A'?'good':r.grade==='B'?'info':r.grade==='C'?'warn':'bad';el('detailCards').innerHTML=`<div class="detail-card"><small>${tr('Cena kupna','Buy price')}</small><b>${fmt(o.buy)}</b></div><div class="detail-card"><small>${tr('Cena sprzedaży','Sell price')}</small><b>${fmt(o.sell)}</b></div><div class="detail-card"><small>${tr('Zysk top quote / szt.','Top-quote profit / unit')}</small><b class="profit">+${fmt(o.profit)}</b></div><div class="detail-card"><small>${tr('Ocena realności','Market reality')}</small><b><span class="tag ${gc}">${r.grade||'—'} ${esc(r.label||'')}</span> ${Number.isFinite(r.score)?r.score+'/100':'—'}</b></div><div class="detail-card"><small>${tr('Kompletność danych','Data completeness')}</small><b>${Number.isFinite(r.dataCompleteness)?r.dataCompleteness+'%':'—'}</b></div><div class="detail-card"><small>${tr('Ref. kupna 7d','7d buy ref.')}</small><b>${Number.isFinite(r.buyRef)?fmt(r.buyRef):'—'}</b></div><div class="detail-card"><small>${tr('Ref. sprzedaży 7d','7d sell ref.')}</small><b>${Number.isFinite(r.sellRef)?fmt(r.sellRef):'—'}</b></div><div class="detail-card"><small>${tr('Wiek ceny kupna','Buy price age')}</small><b>${ageText(r.buyAge)}</b></div><div class="detail-card"><small>${tr('Wiek ceny sprzedaży','Sell price age')}</small><b>${ageText(r.sellAge)}</b></div><div class="detail-card"><small>${tr('Wolumen handlowy / dzień','Trade volume / day')}</small><b>${volumeFmt(v.effectiveDaily,(v.sourceStatus==='error'||v.destinationStatus==='error')?'error':(v.sourceStatus?.includes('cache')||v.destinationStatus?.includes('cache'))?'stale-cache':'fresh')}</b></div><div class="detail-card"><small>${tr('Plan szt.','Planned units')}</small><b>${fmt(bulk.qty)}</b></div><div class="detail-card"><small>${tr('Kapitał planu','Plan capital')}</small><b>${fmt(bulk.capital)}</b></div><div class="detail-card"><small>${tr('Szac. zysk transportu','Est. trip profit')}</small><b class="profit">+${fmt(bulk.totalProfit)}</b></div><div class="detail-card"><small>${tr('Efektywny zysk / szt. planu','Effective plan profit / unit')}</small><b class="profit">${bulk.qty>0?'+'+fmt(bulk.effectiveProfitUnit):'—'}</b></div><div class="detail-card"><small>${tr('Czas sprzedaży planu','Plan sell-through')}</small><b>${Number.isFinite(bulk.daysAtVolume)?bulk.daysAtVolume.toLocaleString(locale(),{maximumFractionDigits:2})+' d':'—'}</b></div><div class="detail-card"><small>${tr('Vol. zakup / dzień','Buy-market volume / day')}</small><b>${volumeFmt(v.buyDaily,v.sourceStatus)}</b></div><div class="detail-card"><small>${tr('Vol. sprzedaż / dzień','Sell-market volume / day')}</small><b>${volumeFmt(v.sellDaily,v.destinationStatus)}</b></div><div class="detail-card"><small>${tr('Historyczny zysk / szt.','Historical profit / unit')}</small><b class="${Number.isFinite(r.repeatableProfit)&&r.repeatableProfit>0?'profit':''}">${Number.isFinite(r.repeatableProfit)?fmt(r.repeatableProfit):'—'}</b></div>`;
-  const data=state.history.get(`${o.itemId}|${o.source}|${o.quality}`)||o.history?.points||[];drawChart(data,o.buy);const note=o.dest==='Black Market'?tr('Dla Black Market publiczna historia AODP nie daje porównywalnego wolumenu aktualnego buy orderu, dlatego wolumen sprzedaży i wolumen handlowy są oznaczone jako brak.','For Black Market, public AODP history does not provide comparable current buy-order volume, so destination/trade volume is unavailable.'):tr('Wolumen jest liczony z historycznych sell orders AODP. Wolumen handlowy to mniejszy z wolumenu rynku zakupu i sprzedaży. Nie jest to głębokość bieżącego order booka.','Volume is calculated from AODP historical sell orders. Trade volume is the lower of buy-market and sell-market activity. It is not current order-book depth.');el('detailNote').innerHTML=`${tr('Kup','Buy')}: <b>${fmt(o.buy)}</b> — ${esc(marketLabel(o.source))}. ${tr('Sprzedaj','Sell')}: <b>${fmt(o.sell)}</b> — ${esc(marketLabel(o.dest))}. ${tr('Zysk po opłatach','Profit after fees')}: <b class="profit">+${fmt(o.profit)}</b> / ${tr('szt.','unit')}.<br>${tr('Interpretacja v5.4.1','v5.4.1 interpretation')}: <b>${Number.isFinite(r.score)?r.score+'/100':'—'}</b> — ${esc(r.label||tr('brak oceny','not rated'))}. ${Number.isFinite(r.repeatableProfit)?`${tr('Historyczny spread 7d po opłatach','7d historical spread after fees')}: <b class="${r.repeatableProfit>0?'profit':''}">${fmt(r.repeatableProfit)}</b> / ${tr('szt.','unit')}.`:''}<br><span class="muted">${o.priceGuard?.sourceWarning?`<b>${tr('Uwaga: bardzo niska cena zakupu została zachowana, ale wymaga sprawdzenia w grze.','Warning: the extremely low buy price was kept, but should be verified in-game.')}</b> `:''}${esc(note)} ${tr('Ocena łączy świeżość, płynność, regularność i zgodność ceny z historią; nie jest gwarancją zysku.','The score combines freshness, liquidity, regularity and price-vs-history plausibility; it is not a profit guarantee.')}</span>`;el('detailDialog').showModal();
+  const data=state.history.get(`${o.itemId}|${o.source}|${o.quality}`)||o.history?.points||[];drawChart(data,o.buy);const note=o.dest==='Black Market'?tr('Dla Black Market publiczna historia AODP nie daje porównywalnego wolumenu aktualnego buy orderu, dlatego wolumen sprzedaży i wolumen handlowy są oznaczone jako brak.','For Black Market, public AODP history does not provide comparable current buy-order volume, so destination/trade volume is unavailable.'):tr('Wolumen jest liczony z historycznych sell orders AODP. Wolumen handlowy to mniejszy z wolumenu rynku zakupu i sprzedaży. Nie jest to głębokość bieżącego order booka.','Volume is calculated from AODP historical sell orders. Trade volume is the lower of buy-market and sell-market activity. It is not current order-book depth.');el('detailNote').innerHTML=`${tr('Kup','Buy')}: <b>${fmt(o.buy)}</b> — ${esc(marketLabel(o.source))}. ${tr('Sprzedaj','Sell')}: <b>${fmt(o.sell)}</b> — ${esc(marketLabel(o.dest))}. ${tr('Zysk po opłatach','Profit after fees')}: <b class="profit">+${fmt(o.profit)}</b> / ${tr('szt.','unit')}.<br>${tr('Interpretacja v5.4.2','v5.4.2 interpretation')}: <b>${Number.isFinite(r.score)?r.score+'/100':'—'}</b> — ${esc(r.label||tr('brak oceny','not rated'))}. ${Number.isFinite(r.repeatableProfit)?`${tr('Historyczny spread 7d po opłatach','7d historical spread after fees')}: <b class="${r.repeatableProfit>0?'profit':''}">${fmt(r.repeatableProfit)}</b> / ${tr('szt.','unit')}.`:''}<br><span class="muted">${o.priceGuard?.sourceWarning?`<b>${tr('Uwaga: bardzo niska cena zakupu została zachowana, ale wymaga sprawdzenia w grze.','Warning: the extremely low buy price was kept, but should be verified in-game.')}</b> `:''}${esc(note)} ${tr('Ocena łączy świeżość, płynność, regularność i zgodność ceny z historią; nie jest gwarancją zysku.','The score combines freshness, liquidity, regularity and price-vs-history plausibility; it is not a profit guarantee.')}</span>`;el('detailDialog').showModal();
 }
 function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:parseHistoryTime(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML=`<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">${tr('Brak historii dla tego sygnału.','No history for this signal.')}</text>`;return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">${tr('30 dni','30 days')} • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">${tr('zakup','buy')} ${fmt(current)}</text>`;}
+
+async function loadCachedOpportunities(){
+  let ops=await dbGetAll('opportunities');
+  // v5.4.2 accepts only the current opportunity schema so stale mathematical models cannot reappear.
+  ops=ops.filter(x=>x&&x.schemaVersion===15);
+  if(!ops.length){await dbClear('opportunities');return false;}
+  state.opportunities=ops;
+  state.page=1;
+  el('validateBtn').disabled=false;
+  const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);
+  el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';
+  setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);
+  render();
+  return true;
+}
+async function exportDB(){
+  const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};
+  for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);
+  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=`albion-local-db-v5_4_2-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+async function importDBFile(file){
+  const txt=await file.text(),j=JSON.parse(txt);
+  if(j?.format!=='albion-market-local-db'||!j.stores)throw new Error(tr('Nieprawidłowy backup','Invalid backup'));
+  for(const s of DB_STORES){await dbClear(s);if(Array.isArray(j.stores[s]))await dbPutMany(s,j.stores[s]);}
+  state.watched=new Set((await dbGetAll('watchlist')).map(x=>x.itemId));
+  setItems(await dbGetAll('items'));
+  await loadSettings();
+  await loadCachedOpportunities();
+  await updateDbInfo();
+}
+async function clearCache(){
+  if(!confirm(tr('Wyczyścić ceny, historię wolumenu i zapisane okazje? Baza przedmiotów i ustawienia zostaną.','Clear prices, volume history and saved opportunities? Item database and settings will remain.')))return;
+  for(const s of ['prices','history','opportunities','scan_runs'])await dbClear(s);
+  state.opportunities=[];state.history.clear();state.volumeFailures.clear();state.volumeStats={jobs:0,errors:0};state.page=1;
+  render();await updateDbInfo();setProgress(0,tr('Lokalny cache cen i wolumenu wyczyszczony.','Local price and volume cache cleared.'));
+}
+function scheduleAuto(){
+  clearInterval(autoTimer);
+  const m=+el('autoRefresh').value||0;
+  if(m>0)autoTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!el('scanBtn').disabled)scan({auto:true}).catch(()=>{});},m*60000);
+}
+function bind(){
+  el('languageSelect').onchange=e=>applyLanguage(e.target.value,true);
+  el('allCategories').onclick=()=>{setSelectedCategories(CATEGORY_LEAVES);queueSaveSettings();};
+  el('clearCategories').onclick=()=>{setSelectedCategories([]);queueSaveSettings();};
+  el('equipmentCategories').onclick=()=>{setSelectedCategories([...EQUIPMENT_CATEGORIES]);queueSaveSettings();};
+  el('bulkMaterialsCategories').onclick=()=>{setSelectedCategories(['bulkMaterials']);queueSaveSettings();};
+  el('smallGoodsCategories').onclick=()=>{setSelectedCategories([...SMALL_GOODS_CATEGORIES]);queueSaveSettings();};
+  el('allMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=true);queueSaveSettings();};
+  el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);queueSaveSettings();};
+  el('scanBtn').onclick=()=>scan();
+  el('stopBtn').onclick=()=>{state.stop=true;state.scanId++;el('stopBtn').disabled=true;el('scanBtn').disabled=false;};
+  el('validateBtn').onclick=()=>enrichAllVolume(true);
+  el('resultSearch').oninput=()=>{state.page=1;render();};
+  el('sortBy').onchange=()=>{state.page=1;render();};
+  ['maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty'].forEach(id=>{const x=el(id);if(!x)return;x.oninput=()=>{state.page=1;render();};x.onchange=()=>{state.page=1;render();queueSaveSettings();};});
+  if(el('bulkRunePreset'))el('bulkRunePreset').onclick=applyBulkPreset;
+  if(el('pageSize'))el('pageSize').onchange=()=>{state.page=1;state.pageSize=+el('pageSize').value||100;render();queueSaveSettings();};
+  if(el('prevPage'))el('prevPage').onclick=()=>{state.page=Math.max(1,state.page-1);render();};
+  if(el('nextPage'))el('nextPage').onclick=()=>{state.page++;render();};
+  el('watchOnly').onclick=()=>{state.watchOnly=!state.watchOnly;el('watchOnly').textContent=state.watchOnly?tr('★ Wszystkie wyniki','★ All results'):tr('★ Obserwowane','★ Watched');render();};
+  el('exportBtn').onclick=exportCsv;
+  el('closeDialog').onclick=()=>el('detailDialog').close();
+  el('dbExportBtn').onclick=exportDB;
+  el('dbImportBtn').onclick=()=>el('dbImportFile').click();
+  el('dbImportFile').onchange=async e=>{try{if(e.target.files[0])await importDBFile(e.target.files[0]);setProgress(100,tr('Backup local.db zaimportowany.','local.db backup imported.'));}catch(err){alert(tr('Import nieudany: ','Import failed: ')+err.message);}e.target.value='';};
+  el('loadCacheBtn').onclick=()=>loadCachedOpportunities();
+  el('dbClearBtn').onclick=clearCache;
+  document.querySelectorAll('thead th[data-sort]').forEach(th=>th.onclick=()=>{const key=th.dataset.sort;if(['bulkProfit','profitVolume','profit','volume','buy','sell','reality'].includes(key)){el('sortBy').value=key;state.page=1;render();}});
+  document.querySelectorAll('input,select').forEach(x=>{if(!['resultSearch','dbImportFile'].includes(x.id))x.addEventListener('change',queueSaveSettings);});
+  document.addEventListener('change',e=>{
+    if(e.target.classList?.contains('marketCheck'))queueSaveSettings();
+    if(e.target.classList?.contains('categoryGroupCheck')){const g=e.target.dataset.group;document.querySelectorAll(`.categoryLeafCheck[data-group="${g}"]`).forEach(x=>x.checked=e.target.checked);updateCategoryParents();updateCategorySummary();queueSaveSettings();}
+    if(e.target.classList?.contains('categoryLeafCheck')){updateCategoryParents();updateCategorySummary();queueSaveSettings();}
+  });
+  window.addEventListener('online',()=>pingApi());
+  window.addEventListener('offline',()=>{el('apiStatus').textContent='offline';el('apiStatus').style.color='var(--bad)';});
+}
+async function init(){
+  try{
+    renderMarkets();renderCategories(CATEGORY_LEAVES);bind();
+    await openLocalDB();setDbStatus(tr('gotowa','ready'));
+    const w=await dbGetAll('watchlist');state.watched=new Set(w.map(x=>x.itemId));
+    await loadSettings();await updateDbInfo();
+    setProgress(3,tr('Ładowanie bazy przedmiotów…','Loading item database…'));
+    await loadItems();await loadCachedOpportunities();
+    setProgress(0,state.opportunities.length?tr('Gotowy — pokazano ostatni cache.','Ready — showing latest cache.'):tr('Gotowy — łączenie z API…','Ready — connecting to API…'));
+    await pingApi();scheduleAuto();
+    if(el('autoStart').value==='yes'&&navigator.onLine)setTimeout(()=>scan({auto:true}).catch(e=>setProgress(0,tr('Błąd auto-skanu: ','Auto-scan error: ')+(e?.message||e))),700);
+  }catch(e){
+    console.error('Albion scanner init error',e);
+    setDbStatus(tr('błąd','error'),false);
+    if(el('dbStatus'))el('dbStatus').textContent=tr('błąd','error');
+    setProgress(0,tr('Błąd inicjalizacji: ','Initialization error: ')+(e?.message||e));
+  }
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.4.2').catch(()=>{});
+  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
+}
 function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','mode','buy_market','buy_price','sell_market','sell_price','top_quote_profit_unit','market_reality_score','market_reality_grade','data_completeness_pct','buy_ref_7d','sell_ref_7d','buy_price_age_h','sell_price_age_h','historical_profit_unit','source_extreme_low_warning','best_source','best_destination','buy_volume_day','sell_volume_day','trade_volume_day','trade_volume_7d','trade_volume_30d','profit_x_volume_day','planned_units','planned_capital','bulk_tax_total','bulk_setup_total','bulk_transport_total','bulk_effective_profit_unit','estimated_trip_profit'],lines=[cols.join(';'),...a.map(o=>[o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),marketLabel(o.dest),Math.round(o.sell),Math.round(o.profit),o.reality?.score??'',o.reality?.grade??'',o.reality?.dataCompleteness??'',Number.isFinite(o.reality?.buyRef)?Math.round(o.reality.buyRef):'',Number.isFinite(o.reality?.sellRef)?Math.round(o.reality.sellRef):'',Number.isFinite(o.reality?.buyAge)?o.reality.buyAge.toFixed(2):'',Number.isFinite(o.reality?.sellAge)?o.reality.sellAge.toFixed(2):'',Number.isFinite(o.reality?.repeatableProfit)?Math.round(o.reality.repeatableProfit):'',o.priceGuard?.sourceWarning?'yes':'',o.bestSource?'yes':'',o.bestDestination?'yes':'',Number.isFinite(o.volume?.buyDaily)?o.volume.buyDaily.toFixed(2):'',Number.isFinite(o.volume?.sellDaily)?o.volume.sellDaily.toFixed(2):'',Number.isFinite(o.volume?.effectiveDaily)?o.volume.effectiveDaily.toFixed(2):'',Number.isFinite(o.volume?.trade7)?Math.round(o.volume.trade7):'',Number.isFinite(o.volume?.trade30)?Math.round(o.volume.trade30):'',Math.round(o.profitVolumeDaily||0),o.bulk?.qty||0,Math.round(o.bulk?.capital||0),Math.round(o.bulk?.taxTotal||0),Math.round(o.bulk?.setupTotal||0),Math.round(o.bulk?.transportTotal||0),Number.isFinite(o.bulk?.effectiveProfitUnit)?o.bulk.effectiveProfitUnit.toFixed(2):'',Math.round(o.bulk?.totalProfit||0)].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_bulk_trade_v5_4_1.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 init();
 })();

@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>Albion Europe Market Scanner v5.4.1 — Calculation Fix / Market Reality</title>
+<title>Albion Europe Market Scanner v5.4.2 — Connection Fix / Market Reality</title>
 <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -26,7 +26,7 @@
 <div class="app">
 <div class="topbar">
 <div class="brand">
-<h1>Albion Europe Market Scanner v5.4.1 — Calculation Fix / Market Reality</h1>
+<h1>Albion Europe Market Scanner v5.4.2 — Connection Fix / Market Reality</h1>
 <p>Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA</p>
 </div>
 <div class="status">
@@ -85,7 +85,7 @@
 </div>
 <div class="tiny">W trybie natychmiastowym sprzedaż do istniejącego buy orderu nie używa setup fee, ale nadal uwzględniamy podatek od sprzedaży (4% Premium / 8% bez Premium). W trybie wystawienia uwzględniamy podatek oraz setup fee.</div>
 <div class="tiny" style="margin-top:8px">Wolumen pochodzi z historycznych sell orders AODP. Dla sprzedaży do buy orderu wolumen rynku docelowego jest wskaźnikiem aktywności rynku, a nie głębokością konkretnego buy orderu.</div></div>
-<div class="section"><h3>Interpretacja rynku v5.4.1</h3><div class="tiny">Skaner zachowuje aktualne ceny AODP. Skrajnie wysokie ceny celu mogą zostać odrzucone jako anomalie, natomiast skrajnie niska cena zakupu pozostaje jako potencjalna okazja i dostaje ostrzeżenie do weryfikacji. Ocena A–D uwzględnia też kompletność danych.</div><div class="tiny" style="margin-top:8px"><b>Najlepsze realne miasto:</b> najwyższa cena, która przejdzie kontrolę anomalii. Przykład: 33 / 37 / 39 / 40 / 59 / 5 994 000 → #1 sprzedaż = 59; 5 994 000 jest odrzucane.</div><div class="tiny" style="margin-top:8px">Ocena A–D nie usuwa normalnych okazji. Black Market jest oceniany osobno od zwykłych miast. Brak pełnej historii ogranicza maksymalną ocenę jakości danych.</div></div>
+<div class="section"><h3>Interpretacja rynku v5.4.2</h3><div class="tiny">Skaner zachowuje aktualne ceny AODP. Skrajnie wysokie ceny celu mogą zostać odrzucone jako anomalie, natomiast skrajnie niska cena zakupu pozostaje jako potencjalna okazja i dostaje ostrzeżenie do weryfikacji. Ocena A–D uwzględnia też kompletność danych.</div><div class="tiny" style="margin-top:8px"><b>Najlepsze realne miasto:</b> najwyższa cena, która przejdzie kontrolę anomalii. Przykład: 33 / 37 / 39 / 40 / 59 / 5 994 000 → #1 sprzedaż = 59; 5 994 000 jest odrzucane.</div><div class="tiny" style="margin-top:8px">Ocena A–D nie usuwa normalnych okazji. Black Market jest oceniany osobno od zwykłych miast. Brak pełnej historii ogranicza maksymalną ocenę jakości danych.</div></div>
 <div class="section">
 <h3>Warunki skanu</h3>
 <label class="check"><input checked="" id="excludeSame" type="checkbox"/> Wyklucz ten sam market</label>
@@ -173,6 +173,679 @@
 <div class="note" id="detailNote" style="margin-top:12px"></div>
 </div>
 </dialog>
-<script src="./app.js"></script>
+<script>
+(() => {
+'use strict';
+
+const API = 'https://europe.albion-online-data.com';
+const ITEMS_URLS = [
+  'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.json',
+  'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
+];
+const MARKETS = [
+  {api:'Bridgewatch', label:'Bridgewatch', royal:true},
+  {api:'Caerleon', label:'Caerleon', royal:true},
+  {api:'Fort Sterling', label:'Fort Sterling', royal:true},
+  {api:'Lymhurst', label:'Lymhurst', royal:true},
+  {api:'Martlock', label:'Martlock', royal:true},
+  {api:'Thetford', label:'Thetford', royal:true},
+  {api:'Brecilien', label:'Brecilien', royal:true},
+  {api:'Arthurs Rest', label:"Arthur's Rest", royal:false},
+  {api:'Merlyns Rest', label:"Merlyn's Rest", royal:false},
+  {api:'Morganas Rest', label:"Morgana's Rest", royal:false},
+  {api:'Black Market', label:'Black Market', royal:false}
+];
+const qualityName = {1:'Normal',2:'Good',3:'Outstanding',4:'Excellent',5:'Masterpiece'};
+const DB_NAME='albion_europe_market_local_db';
+const DB_VERSION=14;
+const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs'];
+const el = id => document.getElementById(id);
+const state = {items:[],itemById:new Map(),raw:[],opportunities:[],stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0}};
+let db=null,settingsTimer=null,autoTimer=null;
+
+const locale = () => state.lang==='en'?'en-US':'pl-PL';
+const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString(locale()) : '—';
+const pct = n => Number.isFinite(+n) ? (+n).toLocaleString(locale(),{minimumFractionDigits:1,maximumFractionDigits:1})+'%' : '—';
+const esc = s => String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const now = () => Date.now();
+const clamp = (n,a=0,b=100) => Math.max(a,Math.min(b,n));
+function parseAodpTime(d){
+  if(!d||String(d).startsWith('0001-'))return NaN;
+  const v=String(d).trim(),hasZone=/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(v);
+  return Date.parse(hasZone?v:v+'Z');
+}
+const ageHours = d => {const t=parseAodpTime(d);if(!Number.isFinite(t))return Infinity;const h=(now()-t)/36e5;return h < -0.25 ? Infinity : Math.max(0,h);};
+const ageText = h => !Number.isFinite(h)?tr('brak','n/a'):h<1?Math.round(h*60)+' min':h<48?h.toLocaleString(locale(),{maximumFractionDigits:1})+' h':(h/24).toLocaleString(locale(),{maximumFractionDigits:1})+' d';
+const marketLabel = api => MARKETS.find(m=>m.api===api)?.label || api;
+const itemIcon = (id,q=1) => `https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?quality=${q}&size=64`;
+const dbKeyPrice = r => `${r.item_id}|${r.city}|${+r.quality||1}`;
+const statKey = (itemId,city,quality) => `${itemId}|${city}|${quality}`;
+const median = a => {if(!a.length)return NaN;const b=[...a].sort((x,y)=>x-y),m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2;};
+const mean = a => a.length?a.reduce((s,x)=>s+x,0)/a.length:NaN;
+
+// v5.4.1 — asymmetric price guard + robust history + data completeness.
+// High destination anomalies can be rejected. Extremely low source prices are preserved as opportunities,
+// but marked for manual verification because a fresh mistaken listing can be genuinely buyable.
+function marketPriceGuard(rows,field){
+  const vals=(rows||[]).map(r=>+r?.[field]||0).filter(v=>v>0&&Number.isFinite(v));
+  if(vals.length<3)return{median:median(vals),mad:NaN,cap:Infinity,floor:0,count:vals.length,isOutlier:()=>false,isLowOutlier:()=>false};
+  const med=median(vals);
+  if(!(med>0))return{median:med,mad:NaN,cap:Infinity,floor:0,count:vals.length,isOutlier:()=>false,isLowOutlier:()=>false};
+  const mad=median(vals.map(v=>Math.abs(v-med)));
+  // Wide guard: normal city spreads must survive. It is intentionally much stricter only for extreme highs.
+  const ratioCap=med*8;
+  const robustCap=med+(Number.isFinite(mad)?mad*15:0);
+  const cap=Math.max(ratioCap,robustCap),ratioFloor=med/8,robustFloor=Math.max(0,med-(Number.isFinite(mad)?mad*15:0)),floor=Math.min(ratioFloor,robustFloor||ratioFloor);
+  return{median:med,mad,cap,floor,count:vals.length,isOutlier:v=>Number.isFinite(+v)&&+v>cap,isLowOutlier:v=>Number.isFinite(+v)&&+v>0&&+v<floor};
+}
+function historyReferencePrice(m){
+  // Median first: the anti-anomaly reference must not be dragged upward by one huge, high-volume day.
+  // robustVwap is winsorized around the daily median/MAD and is a secondary reference.
+  const refs=[m?.prices?.d7?.median,m?.prices?.d7?.robustVwap,m?.prices?.d14?.median,m?.prices?.d14?.robustVwap,m?.prices?.d30?.median,m?.prices?.d30?.robustVwap,m?.median,m?.vwap]
+    .map(Number).filter(v=>Number.isFinite(v)&&v>0);
+  return refs.length?refs[0]:null;
+}
+function historyRatioLimit(m){
+  const daily=+m?.volumes?.d7?.avg||0,regularity=+m?.regularity||0;
+  let cap=daily>=500?3.5:daily>=100?4:daily>=20?5:daily>=5?7:10;
+  if(regularity<35)cap*=1.25;
+  return cap;
+}
+function historyPriceOutlier(currentPrice,histMetrics,direction='high'){
+  const ref=historyReferencePrice(histMetrics);if(!(currentPrice>0&&ref>0))return false;const cap=historyRatioLimit(histMetrics);
+  return direction==='low'?currentPrice<ref/cap:currentPrice>ref*cap;
+}
+function freshnessScoreFromAge(h){if(!Number.isFinite(h))return 15;if(h<=1)return 100;if(h<=3)return 92;if(h<=6)return 82;if(h<=12)return 68;if(h<=24)return 52;if(h<=48)return 32;if(h<=96)return 18;return 8;}
+function ratioPlausibilityScore(r){if(!(r>0&&Number.isFinite(r)))return 65;return clamp(100-Math.abs(Math.log(r))*42,5,100);}
+function historyCompletenessPoints(m){
+  if(!m||!historyReferencePrice(m))return 0;
+  const p7=+m?.prices?.d7?.points||0;
+  if(p7>=5)return 30;if(p7>=3)return 26;if(p7>=1)return 18;return 12;
+}
+function marketRealityAssessment(o,sm,dm){
+  const buyRef=historyReferencePrice(sm),sellRef=historyReferencePrice(dm),buyRatio=buyRef?o.buy/buyRef:null,sellRatio=sellRef?o.sell/sellRef:null;
+  const buyAge=ageHours(o.sourceDate),sellAge=ageHours(o.destDate),worstAge=Math.max(buyAge,sellAge),tradeDay=Number.isFinite(o.volume?.effectiveDaily)?o.volume.effectiveDaily:null;
+  const freshness=freshnessScoreFromAge(worstAge),liquidity=Number.isFinite(tradeDay)?clamp(25*Math.log10(1+Math.max(0,tradeDay)),0,100):35;
+  const regs=[sm?.regularity,dm?.regularity].map(Number).filter(Number.isFinite),regularity=regs.length?Math.min(...regs):45,prs=[buyRatio,sellRatio].filter(v=>v>0&&Number.isFinite(v)).map(ratioPlausibilityScore),plausibility=prs.length?mean(prs):65;
+  const rawScore=Math.round(.35*freshness+.25*liquidity+.20*regularity+.20*plausibility);
+  let completeness=(Number.isFinite(buyAge)?20:0)+(Number.isFinite(sellAge)?20:0)+historyCompletenessPoints(sm);
+  // Black Market has a different demand mechanism and no comparable sell-history depth for its current buy order.
+  // Give partial credit for a known limitation, but never let it receive grade A from incomplete comparable data.
+  completeness+=o.dest==='Black Market'?15:historyCompletenessPoints(dm);
+  completeness=clamp(Math.round(completeness),0,100);
+  const scoreCap=completeness<50?51:completeness<75?67:completeness<90?81:100;
+  const score=Math.min(rawScore,scoreCap);
+  const grade=score>=82?'A':score>=68?'B':score>=52?'C':'D',label=grade==='A'?tr('mocna','strong'):grade==='B'?tr('dobra','good'):grade==='C'?tr('ostrożnie','caution'):tr('sprawdź','verify');
+  let repeatableProfit=null,repeatableMargin=null;if(o.mode==='relist'&&buyRef&&sellRef){const ur=o.rawDestinationPrice>0?o.sell/o.rawDestinationPrice:1,hg=Math.max(1,Math.floor(sellRef*ur)),tax=Math.ceil(hg*(+o.taxRatePct||0)/100),setup=Math.ceil(hg*(+o.setupRatePct||0)/100);repeatableProfit=hg-tax-setup-buyRef-(+o.transportCost||0);repeatableMargin=buyRef>0?repeatableProfit/buyRef*100:null;}
+  return{score,rawScore,scoreCap,grade,label,dataCompleteness:completeness,buyAge,sellAge,worstAge,buyRef,sellRef,buyRatio,sellRatio,freshness,liquidity,regularity,plausibility,repeatableProfit,repeatableMargin};
+}
+function markRouteRanks(ops){const groups=new Map();for(const o of ops||[]){const k=`${o.itemId}|${o.quality}|${o.mode}`;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(o);}for(const arr of groups.values()){const bestSell=Math.max(...arr.map(x=>+x.sell||0)),bestBuy=Math.min(...arr.map(x=>+x.buy||Infinity));for(const o of arr){o.bestDestination=(+o.sell||0)===bestSell;o.bestSource=(+o.buy||Infinity)===bestBuy;}}}
+
+const tr = (pl,en) => state.lang==='en'?en:pl;
+const TEXT_PAIRS = {
+  'Market Intelligence • Europe • AODP API • modele okazji • Kategorie • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA':'Market Intelligence • Europe • AODP API • opportunity models • Categories • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA','API:':'API:','niepołączone':'not connected','Przedmioty:':'Items:','Ostatni skan:':'Last scan:','Zakres skanowania':'Scan scope','Wyszukaj przedmiot / ID':'Search item / ID','Wszystkie':'All','Jakość':'Quality','Limit przedmiotów':'Item limit','Limit przedmiotów (0 = wszystkie)':'Item limit (0 = all)',
+  'Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Duży limit = więcej zapytań i dłuższy skan.':'With an empty search, the scanner selects tradeable T4–T8 items. A higher limit means more requests and a longer scan.',
+  'Kategorie przedmiotów':'Item categories','Wszystkie kategorie':'All categories','Wyczyść':'Clear','Tylko ekwipunek':'Equipment only',
+  'Kategorie są stosowane przed zapytaniem do API. Możesz zaznaczyć kilka grup jednocześnie, np. Zbroje + Broń.':'Categories are applied before API requests. You can select multiple groups, e.g. Armor + Weapons.',
+  'Markety':'Markets','Główne miasta':'Royal cities','Black Market jest traktowany wyłącznie jako cel natychmiastowej sprzedaży do buy orderu; nie jest używany jako źródło zakupu ani jako zwykły market do relistingu.':'Black Market is used only as a destination for instant sales into buy orders; it is not used as a purchase source or a normal relisting market.',
+  'Strategia':'Strategy','Tryb':'Mode','Smart Scan — wszystkie modele':'Smart Scan — all models','Natychmiast: sell → buy order':'Instant: sell → buy order','Transport + wystawienie sell orderu':'Transport + place sell order',
+  'Profil ryzyka':'Risk profile','Konserwatywny':'Conservative','Zbalansowany':'Balanced','Agresywny':'Aggressive','Analiza historii':'History analysis','Szybka — bez historii':'Fast — no history','Zaawansowana — top 30':'Advanced — top 30','Głęboka — top 50':'Deep — top 50',
+  'Tak (tax 4%)':'Yes (tax 4%)','Nie (tax 8%)':'No (tax 8%)','Koszt transportu / szt.':'Transport cost / unit',
+  'W trybie natychmiastowym sprzedaż do istniejącego buy orderu nie używa setup fee, ale nadal uwzględniamy podatek od sprzedaży (4% Premium / 8% bez Premium). W trybie wystawienia uwzględniamy podatek oraz setup fee.':'In instant mode, selling into an existing buy order does not use the setup fee, but sales tax still applies (4% Premium / 8% without Premium). Relisting includes both tax and setup fee.',
+  'Filtry okazji':'Opportunity filters','Min. zysk / szt.':'Min. profit / unit','Maks. wiek ceny (h)':'Max price age (h)','Min. cena zakupu':'Min. buy price','Wyklucz ten sam market':'Exclude same market','Obie ceny muszą być świeże':'Both prices must be fresh',
+  'Wolumen i płynność':'Volume & liquidity','Min. wolumen / dzień':'Min. volume / day','Min. wolumen 7 dni':'Min. 7-day volume','Min. Liquidity Score':'Min. Liquidity Score','Maks. czas wyjścia (dni)':'Max exit time (days)','Tylko po analizie wolumenu':'Require volume analysis','Śr. wolumen':'Avg. volume','est. szt. / dzień':'est. units / day','Śr. płynność':'Avg. liquidity','Wolumen/d':'Volume/day','Wyjście':'Exit','Vol/d':'Vol/day','Wolumen / dzień':'Volume / day','est. płynność rynku':'estimated market liquidity','Wolumen pochodzi z historycznych sell orders AODP. Dla natychmiastowej sprzedaży wolumen rynku docelowego jest wskaźnikiem płynności rynku, a nie głębokością aktualnego buy orderu.':'Volume comes from AODP historical sell orders. For instant sales, destination volume is a market-liquidity proxy, not the depth of the current buy order.',
+  'Portfel i budżet':'Portfolio & budget','Budżet (silver)':'Budget (silver)','Rezerwa %':'Reserve %','Maks. na przedmiot % budżetu':'Max per item % of budget','Maks. na trasę % budżetu':'Max per route % of budget','Maks. pozycji':'Max positions','Maks. sztuk / pozycję':'Max units / position','Min. confidence portfela':'Min. portfolio confidence','Horyzont płynności':'Liquidity horizon','6 godzin':'6 hours','12 godzin':'12 hours','1 dzień':'1 day','2 dni':'2 days','3 dni':'3 days','Automatycznie przebuduj portfel po skanie':'Rebuild portfolio automatically after scan','Zbuduj portfel':'Build portfolio','Eksport portfela':'Export portfolio',
+  'Liczba sztuk jest estymacją opartą na historii wolumenu i jakości danych. Publiczne AODP nie udostępnia pełnej głębokości aktualnego order booka, dlatego większe pozycje wymagają weryfikacji w grze.':'Unit count is an estimate based on historical volume and data quality. Public AODP does not expose the full depth of the current order book, so larger positions should be verified in-game.',
+  'Automatyzacja i local.db':'Automation & local.db','Automatyczny skan':'Automatic scan','Wyłączony':'Off','co 5 min':'every 5 min','co 10 min':'every 10 min','co 15 min':'every 15 min','co 30 min':'every 30 min','co 60 min':'every 60 min','Start po otwarciu':'Start on open','Tak':'Yes','Nie':'No','Użyj ostatnich danych local.db przy błędzie API':'Use latest local.db data on API error','Pokaż cache':'Show cache','Wyczyść cache':'Clear cache','IndexedDB zapisuje ostatnie ceny, historię, obserwowane przedmioty i ustawienia lokalnie w tej przeglądarce. Dane nie są wysyłane do GitHub.':'IndexedDB stores recent prices, history, watched items and settings locally in this browser. Data is not sent to GitHub.',
+  'Skanuj okazje':'Scan opportunities','Gotowy.':'Ready.','Przelicz modele historii':'Recalculate history models','Przerwij':'Stop',
+  'Okazje':'Opportunities','po filtrach':'after filters','Najlepszy zysk':'Best profit','srebra / szt.':'silver / unit','Najlepszy ROI':'Best ROI','po opłatach':'after fees','Przeskanowano':'Scanned','przedmiotów':'items','Średnia świeżość':'Average freshness','starsza z dwóch cen':'older of the two prices','Śr. confidence':'Avg. confidence','jakość sygnału 0–100':'signal quality 0–100',
+  'Portfel rekomendowany':'Recommended portfolio','Dobór pozycji według budżetu, płynności, koncentracji, Confidence i Opportunity Score.':'Position selection based on budget, liquidity, concentration, Confidence and Opportunity Score.','Nie zbudowano portfela.':'Portfolio not built.','Budżet':'Budget','Kapitał użyty':'Capital used','Wolne środki':'Free funds','Zysk nominalny':'Nominal profit','Zysk modelowy':'Model profit','ROI modelowy':'Model ROI',
+  'Przedmiot':'Item','Trasa / model':'Route / model','Szt.':'Units','Kapitał':'Capital','Confidence':'Confidence','Priorytet':'Priority','Dlaczego':'Why','Najpierw wykonaj skan, a następnie zbuduj portfel.':'Run a scan first, then build a portfolio.','Model dywersyfikuje kapitał między przedmioty i trasy. Wyniki są estymacją, nie gwarancją dostępności zleceń ani realizacji sprzedaży.':'The model diversifies capital across items and routes. Results are estimates, not guarantees of order availability or sale execution.',
+  'Sortuj: Opportunity Score':'Sort: Opportunity Score','Zysk ważony pewnością':'Confidence-weighted profit','Zysk':'Profit','Świeżość':'Freshness','Cena zakupu':'Buy price','Wolumen':'Volume','Płynność':'Liquidity','Model Profit/day':'Model Profit/day','Czas wyjścia':'Exit time','Safe / Normal / Aggressive':'Safe / Normal / Aggressive','★ Obserwowane':'★ Watched','Eksport CSV':'Export CSV','Model':'Model','Trasa':'Route','Kupno':'Buy','Sprzedaż':'Sell','Zysk netto':'Net profit','Zysk ważony':'Weighted profit','Wiek':'Age','Opportunity':'Opportunity','Ocena':'Rating','Uruchom skan, aby wyszukać okazje między marketami Europy.':'Run a scan to find opportunities across European markets.',
+  'Szczegóły':'Details','Zamknij':'Close','Powtarzalność':'Persistence','Płynność':'Liquidity','Zmienność':'Volatility','Zgodność z historią':'History plausibility',
+  'wysoka pewność':'high confidence','dobry confidence':'good confidence','wysoki Opportunity':'high Opportunity','zakup poniżej mediany':'buy below median','dobra płynność':'good liquidity','anomalia':'anomaly','wysokie ryzyko':'high risk','stara cena':'stale price','dobry sygnał':'good signal','zweryfikuj':'verify',
+  'brak istotnych ostrzeżeń modelu.':'no material model warnings.','Ryzyka:':'Risks:','Portfel v5.2.3:':'Portfolio v5.2.3:','skrzyżowane notowania — możliwa różnica czasu aktualizacji':'crossed quotes — timestamps may be out of sync','cena blisko limitu świeżości':'price near the freshness limit','duży spread na rynku docelowym':'large spread in destination market','cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość':'buy price extremely below the current city median — verify freshness','cena zakupu ekstremalnie poniżej 30-dniowej mediany — możliwy stary rekord':'buy price extremely below the 30-day median — possibly stale record','buy order znacznie powyżej historycznej ceny sprzedaży — wysoka szansa nieaktualnego sygnału':'buy order far above historical sell price — high chance of a stale signal','niski historyczny obrót':'low historical volume','wysoka zmienność ceny':'high price volatility','Polski':'Polish',
+  'Warunki skanu':'Scan conditions','v5.2.3 zapisuje szeroki zestaw kandydatów z dodatnim zyskiem. ROI, Confidence, świeżość, wolumen i płynność nie kasują już sygnału podczas skanu — ustawiasz je niżej jako filtry wyników lub kryteria sortowania.':'v5.2.3 keeps a broad set of positive-profit candidates. ROI, Confidence, freshness, volume and liquidity no longer delete a signal during scanning — use them below as result filters or sorting criteria.',
+  'Filtry wyników — nie wpływają na pobieranie API':'Result filters — do not affect API fetching','Wszystkie dodatnie':'All positive','Polecane':'Recommended','Świeże':'Fresh','Płynne':'Liquid','Wysoka marża':'High margin','Filtruj: obie ceny w limicie wieku':'Filter: both prices within age limit','Skan zachowuje wszystkie dodatnie kandydaty. Te pola tylko zawężają tabelę. Użyj „Wszystkie dodatnie”, aby natychmiast wrócić do pełnej listy.':'The scan keeps all positive-profit candidates. These fields only narrow the table. Use “All positive” to instantly return to the full list.',
+  'Market Intelligence • Europe • AODP API • Cena × Wolumen • Volume 1/3/7/14/30d • Portfolio Optimizer • PL/EN • IndexedDB • GitHub Pages / PWA':'Market Intelligence • Europe • AODP API • Price × Volume • Volume 1/3/7/14/30d • Portfolio Optimizer • PL/EN • IndexedDB • GitHub Pages / PWA',
+  'Analiza wolumenu':'Volume analysis','Szybka — bez wolumenu':'Fast — no volume','Standard — top 30 wg ceny':'Standard — top 30 by price','Dokładna — top 50 wg ceny':'Detailed — top 50 by price','Głęboka — top 80 wg ceny':'Deep — top 80 by price',
+  'v5.2.3 wykrywa okazje na podstawie dwóch rzeczy: dodatniej różnicy ceny po opłatach oraz wolumenu. Pozostałe wskaźniki są tylko informacją i sortowaniem.':'v5.2.3 detects opportunities using two things: positive net price difference after fees and volume. Other indicators are informational and sortable only.',
+  'Horyzont wolumenu portfela':'Portfolio volume horizon','Liczba sztuk jest estymacją opartą głównie na wolumenie historycznym. Publiczne AODP nie udostępnia pełnej głębokości aktualnego order booka, dlatego większe pozycje wymagają weryfikacji w grze.':'Unit count is estimated mainly from historical volume. Public AODP does not expose the full current order-book depth, so larger positions should be verified in-game.',
+  'Dobór pozycji głównie według ceny, wolumenu, budżetu i koncentracji. Confidence pozostaje informacją pomocniczą.':'Position selection is based mainly on price, volume, budget and concentration. Confidence remains auxiliary information.',
+  'Zysk skorygowany (info)':'Adjusted profit (info)','ROI portfela':'Portfolio ROI',
+  'Filtry podstawowe: cena + wolumen':'Basic filters: price + volume','Tylko z wolumenem':'With volume only','Aktywny handel':'Active trading','Wyższa cena':'Higher price','Min. zysk netto / szt. (cena)':'Min. net profit / unit (price)',
+  'Tylko te dwa pola filtrują okazje. ROI, Confidence, świeżość, Liquidity Score i czas wyjścia są nadal liczone i można po nich sortować, ale nie usuwają wyników.':'Only these two fields filter opportunities. ROI, Confidence, freshness, Liquidity Score and exit time are still calculated and sortable, but do not remove results.',
+  'Sortuj: Cena × wolumen':'Sort: Price × volume','Cena×Vol':'Price×Vol','Profit/day':'Profit/day','Przelicz wolumen':'Recalculate volume'
+};
+Object.assign(TEXT_PAIRS,{
+  'Albion Europe Market Scanner v5.2.5 — Cena i Wolumen':'Albion Europe Market Scanner v5.2.5 — Price & Volume',
+  'Europe • AODP API • ceny kupna/sprzedaży • wolumen 7/30 dni • PL/EN • IndexedDB • GitHub Pages / PWA':'Europe • AODP API • buy/sell prices • 7/30-day volume • PL/EN • IndexedDB • GitHub Pages / PWA',
+  'Skanuj ceny i wolumen':'Scan prices and volume','Odśwież wolumen':'Refresh volume',
+  'Warunki skanu':'Scan rules','Skaner pokazuje każdą trasę z dodatnim zyskiem netto. Do filtrowania wyników służą wyłącznie minimalny zysk i minimalny wolumen.':'The scanner shows every route with positive net profit. Only minimum profit and minimum volume filter the results.',
+  'Filtry: tylko cena i wolumen':'Filters: price and volume only','Min. zysk netto / szt. (cena)':'Min. net profit / unit (price)',
+  'Żadne dodatkowe score, Confidence, ROI ani świeżość nie usuwają wyników. Cena i wolumen są jedynymi kryteriami.':'No additional score, Confidence, ROI or freshness removes results. Price and volume are the only criteria.',
+  'Największy wolumen':'Highest volume','Najlepszy obrót zysku':'Best profit throughput','zysk × wolumen / dzień':'profit × volume / day','Rekordy z wolumenem':'Routes with volume','okazji z historią':'routes with history',
+  'Tryb':'Mode','Kup w':'Buy in','Cena kupna':'Buy price','Sprzedaj w':'Sell in','Cena sprzedaży':'Sell price','Zysk netto / szt.':'Net profit / unit','Vol. zakup / d':'Buy vol / day','Vol. sprzedaż / d':'Sell vol / day','Wolumen handlowy / d':'Trade volume / day','Wolumen 7 dni':'7-day volume','Wolumen 30 dni':'30-day volume','Zysk × wolumen / d':'Profit × volume / day',
+  'Sortuj: Zysk × wolumen':'Sort: Profit × volume','Zysk / szt.':'Profit / unit','Zysk top / szt.':'Top-quote profit / unit','top quote / szt.':'top quote / unit','Najniższa cena zakupu':'Lowest buy price','Najwyższa cena sprzedaży':'Highest sell price',
+  'Do buy orderu':'To buy order','Wystaw sell order':'List sell order','Szczegóły':'Details','Zysk po opłatach':'Profit after fees','szt.':'unit',
+  'Wolumen pochodzi z historycznych sell orders AODP. Dla sprzedaży do buy orderu wolumen rynku docelowego jest wskaźnikiem aktywności rynku, a nie głębokością konkretnego buy orderu.':'Volume comes from historical AODP sell orders. For sales into a buy order, destination volume is a market-activity indicator, not the depth of that specific buy order.',
+  '← Poprzednia':'← Previous','Następna →':'Next →','50 / strona':'50 / page','100 / strona':'100 / page','250 / strona':'250 / page',
+  'Cena i wolumen są jedynymi kryteriami filtrowania wyników. Błąd API wolumenu nie jest zapisywany jako zero; przy awarii zobaczysz błąd API albo oznaczenie cache.':'Price and volume are the only result filters. A volume API failure is never cached as zero; on failure you will see an API error or a cache marker.',
+  'Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA':'Europe • AODP API • bulk trading • price + volume • city-to-city transport • PL/EN • IndexedDB • GitHub Pages / PWA',
+  'Plan ilości jest prostą estymacją: cena + historyczny wolumen. Nie zakłada, że cała liczba sztuk jest dostępna dokładnie po najniższej cenie z API.':'Quantity planning is a simple estimate based on price + historical volume. It does not assume the full quantity is available exactly at the API minimum price.',
+  'Plan sztuk = minimum z limitu budżetu, wybranego udziału wolumenu i maksymalnej liczby sztuk. Dla mamuta jest to lista kandydatów do sprawdzenia w grze przed zakupem.':'Planned units = the minimum of budget cap, selected share of volume, and max units. For a mammoth run, treat it as a shortlist to verify in-game before buying.','Skanuj pełny zakres cen i wolumenu':'Scan full price and volume range','Pełny skan respektuje limity AODP i pokazuje postęp liczby przetworzonych przedmiotów. Nie ogranicza się do 500 pozycji.':'Full scan respects AODP limits and shows item processing progress. It is not limited to 500 items.','Domyślnie skanowane są wszystkie pasujące handlowalne T4–T8. Wartość 0 oznacza brak limitu. Zapytania są automatycznie dzielone na partie zgodne z limitem długości URL AODP; szeroki skan może potrwać kilka minut.':'By default all matching tradeable T4–T8 items are scanned. 0 means no item limit. Requests are automatically split to fit the AODP URL limit; a broad scan may take several minutes.',
+  'Filtry pozostają proste: maksymalna cena zakupu, minimalny zysk na sztuce i minimalny wolumen. Plan hurtowy służy do oszacowania liczby sztuk i łącznego zysku transportu.':'Filters stay simple: maximum buy price, minimum profit per unit, and minimum volume. The bulk plan estimates units and total trip profit.',
+  'Albion Europe Market Scanner v5.3 — Hurt / Mamut':'Albion Europe Market Scanner v5.3 — Bulk Trade',
+  'Runy / dusze / relikty':'Runes / souls / relics','Drobne towary':'Small goods','Runy, dusze, relikty i esencje':'Runes, souls, relics & essences',
+  'Handel hurtowy / Mamut':'Bulk trade / Mammoth','Preset: runy / dusze / relikty':'Preset: runes / souls / relics',
+  'Budżet na jedną trasę (silver)':'Budget per route (silver)','Użyj % dziennego wolumenu':'Use % of daily volume','Planowany czas sprzedaży (dni)':'Planned sell time (days)','Maks. sztuk na trasę':'Max units per route',
+  'Maks. cena zakupu / szt.':'Max buy price / unit','Plan szt.':'Planned units','Kapitał planu':'Plan capital','Kapitał':'Capital','Zysk transportu':'Trip profit','Szac. zysk transportu':'Est. trip profit','Czas sprzedaży planu':'Plan sell-through','Sortuj: Zysk transportu':'Sort: Trip profit'
+});
+const EN_TO_PL = Object.fromEntries(Object.entries(TEXT_PAIRS).map(([pl,en])=>[en,pl]));
+function translateKnownText(s){if(s==null)return s;const str=String(s);if(state.lang==='en')return TEXT_PAIRS[str]||str;return EN_TO_PL[str]||str;}
+function translateTextNodes(root=document.body){
+  const map=state.lang==='en'?TEXT_PAIRS:EN_TO_PL,walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;
+  while((n=walker.nextNode())){const raw=n.nodeValue,trim=raw.trim();if(trim&&map[trim])n.nodeValue=raw.replace(trim,map[trim]);}
+}
+function translateDynamic(s){
+  if(s==null)return s;let str=String(s);const exact=translateKnownText(str);if(exact!==str)return exact;
+  const parts=str.split(' • ');if(parts.length>1)return parts.map(translateDynamic).join(' • ');
+  let m=str.match(/^limit płynności (\d+) szt\.$/);if(m)return state.lang==='en'?`liquidity cap ${m[1]} units`:str;
+  m=str.match(/^liquidity cap (\d+) units$/);if(m)return state.lang==='pl'?`limit płynności ${m[1]} szt.`:str;
+  return str;
+}
+function applyLanguage(lang,persist=true){
+  state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.4.2 — Connection Fix':'Albion Europe Market Scanner v5.4.2 — Poprawione połączenie';
+  if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, peleryna…','e.g. Bag, T6_BAG, cape…');
+  if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
+  const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
+}
+
+const CATEGORY_GROUPS = [
+  {id:'armor',pl:'Zbroje',en:'Armor',children:[['head','Hełmy','Helmets'],['chest','Pancerze','Chest armor'],['shoes','Buty','Shoes']]},
+  {id:'accessories',pl:'Ekwipunek dodatkowy',en:'Accessories',children:[['bags','Torby','Bags'],['capes','Peleryny','Capes'],['mounts','Wierzchowce','Mounts']]},
+  {id:'resources',pl:'Surowce',en:'Resources',children:[['rawResources','Surowce podstawowe','Raw resources'],['refinedResources','Surowce przetworzone','Refined resources']]},
+  {id:'consumables',pl:'Konsumowalne',en:'Consumables',children:[['food','Jedzenie','Food'],['potions','Mikstury','Potions']]},
+  {id:'gathering',pl:'Zbieractwo',en:'Gathering',children:[['gatheringGear','Ubrania zbierackie','Gathering gear'],['tools','Narzędzia','Tools']]},
+  {id:'special',pl:'Pozostałe grupy',en:'Other groups',children:[['bulkMaterials','Runy, dusze, relikty i esencje','Runes, souls, relics & essences'],['artifacts','Artefakty','Artifacts'],['journals','Dzienniki','Journals'],['fishing','Ryby i wędkarstwo','Fish & fishing'],['farming','Rolnictwo','Farming'],['luxury','Dobra luksusowe','Luxury goods'],['other','Inne','Other']]}
+];
+const CATEGORY_LEAVES = CATEGORY_GROUPS.flatMap(g=>g.children.map(c=>c[0]));
+const EQUIPMENT_CATEGORIES = new Set(['head','chest','shoes','bags','capes','gatheringGear']);
+const SMALL_GOODS_CATEGORIES = new Set(['bulkMaterials','rawResources','refinedResources','food','potions','farming','fishing']);
+function categoryLabel(id){for(const g of CATEGORY_GROUPS)for(const c of g.children)if(c[0]===id)return state.lang==='en'?c[2]:c[1];return id;}
+function categoryForItem(id){
+  const base=String(id).split('@')[0];
+  if(/_GATHERER_/.test(base))return'gatheringGear';
+  if(/_MOUNT_/.test(base))return'mounts';
+  if(/_TOOL_/.test(base))return'tools';
+  if(/^T[2-8]_(?:RUNE|SOUL|RELIC|ESSENCE)(?:_|$)/.test(base))return'bulkMaterials';
+  if(/_(?:ARTEFACT|ARTIFACT)_/.test(base))return'artifacts';
+  if(/_JOURNAL_/.test(base))return'journals';
+  if(/_LUXURY/.test(base))return'luxury';
+  if(/(?:^|_)FISH(?:_|$)|_FISHING_/.test(base))return'fishing';
+  if(/_(?:SEED|FARM|CROP|HERB|BABY|EGG)(?:_|$)/.test(base))return'farming';
+  if(/^T[2-8]_(?:ORE|WOOD|FIBER|HIDE|ROCK)(?:_|$)/.test(base))return'rawResources';
+  if(/^T[2-8]_(?:METALBAR|PLANKS|CLOTH|LEATHER|STONEBLOCK)(?:_|$)/.test(base))return'refinedResources';
+  if(/_(?:MEAL|FOOD)(?:_|$)/.test(base))return'food';
+  if(/_POTION(?:_|$)/.test(base))return'potions';
+  if(/_HEAD_/.test(base))return'head';
+  if(/_ARMOR_/.test(base))return'chest';
+  if(/_SHOES_/.test(base))return'shoes';
+  if(/_(?:MAIN|2H)_/.test(base))return'weapons';
+  if(/_OFF_/.test(base))return'offhands';
+  if(/_BAG(?:_|$)/.test(base))return'bags';
+  if(/^T[2-8]_CAPE/.test(base)||/_CAPE(?:_|$)/.test(base))return'capes';
+  return'other';
+}
+function selectedCategories(){return [...document.querySelectorAll('.categoryLeafCheck:checked')].map(x=>x.value);}
+function setSelectedCategories(ids){const set=new Set(ids||[]);document.querySelectorAll('.categoryLeafCheck').forEach(x=>x.checked=set.has(x.value));updateCategoryParents();updateCategorySummary();}
+function updateCategoryParents(){for(const g of CATEGORY_GROUPS){const p=document.querySelector(`.categoryGroupCheck[data-group="${g.id}"]`),kids=[...document.querySelectorAll(`.categoryLeafCheck[data-group="${g.id}"]`)];if(!p)continue;const n=kids.filter(x=>x.checked).length;p.checked=n===kids.length;p.indeterminate=n>0&&n<kids.length;}}
+function updateCategorySummary(){const sum=el('categorySummary');if(!sum)return;const ids=selectedCategories();if(ids.length===CATEGORY_LEAVES.length)sum.textContent=tr('Wszystkie kategorie','All categories');else if(!ids.length)sum.textContent=tr('Brak kategorii','No categories');else{const labels=ids.slice(0,3).map(categoryLabel);sum.textContent=`${ids.length}/${CATEGORY_LEAVES.length}: ${labels.join(', ')}${ids.length>3?'…':''}`;}}
+function renderCategories(selected=null){
+  const prior=selected===null?CATEGORY_LEAVES:selected;const initial=new Set(prior);
+  el('categories').innerHTML=CATEGORY_GROUPS.map(g=>`<div class="category-group"><label class="category-parent"><input type="checkbox" class="categoryGroupCheck" data-group="${g.id}" checked> <span>${esc(state.lang==='en'?g.en:g.pl)}</span><span class="cat-count" data-group-count="${g.id}"></span></label><div class="category-children">${g.children.map(c=>`<label class="category-leaf"><input type="checkbox" class="categoryLeafCheck" data-group="${g.id}" value="${c[0]}" ${initial.has(c[0])?'checked':''}><span>${esc(state.lang==='en'?c[2]:c[1])}</span><span class="cat-count" data-cat-count="${c[0]}"></span></label>`).join('')}</div></div>`).join('');
+  updateCategoryParents();updateCategorySummary();updateCategoryCounts();
+}
+function updateCategoryCounts(){if(!state.items?.length)return;const counts=Object.fromEntries(CATEGORY_LEAVES.map(x=>[x,0]));for(const it of state.items)counts[categoryForItem(it.id)]++;for(const [id,n] of Object.entries(counts)){const x=document.querySelector(`[data-cat-count="${id}"]`);if(x)x.textContent=fmt(n);}for(const g of CATEGORY_GROUPS){const n=g.children.reduce((a,c)=>a+(counts[c[0]]||0),0),x=document.querySelector(`[data-group-count="${g.id}"]`);if(x)x.textContent=fmt(n);}}
+function setItems(items){state.items=items;state.itemById=new Map(items.map(x=>[x.id,x]));updateCategoryCounts();}
+function itemDisplayName(item){if(!item)return'';return state.lang==='en'?(item.nameEn||item.name||item.namePl||item.id):(item.namePl||item.name||item.nameEn||item.id);}
+function displayItemNameById(id,fallback=''){return itemDisplayName(state.itemById.get(id))||fallback||id;}
+function displayOpportunityName(o){return displayItemNameById(o.itemId,state.lang==='en'?(o.itemNameEn||o.itemName):(o.itemNamePl||o.itemName));}
+
+function setProgress(p,text){el('progressBar').style.width=clamp(p)+'%';el('progressText').textContent=text;}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function setDbStatus(txt,good=true){el('localDbStatus').textContent=txt;el('localDbStatus').style.color=good?'var(--good)':'var(--bad)';}
+
+function openLocalDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,DB_VERSION);
+    req.onupgradeneeded=()=>{
+      const d=req.result;
+      if(!d.objectStoreNames.contains('items'))d.createObjectStore('items',{keyPath:'id'});
+      if(!d.objectStoreNames.contains('prices')){const s=d.createObjectStore('prices',{keyPath:'key'});s.createIndex('item_id','item_id',{unique:false});s.createIndex('city','city',{unique:false});}
+      if(!d.objectStoreNames.contains('history'))d.createObjectStore('history',{keyPath:'key'});
+      if(!d.objectStoreNames.contains('watchlist'))d.createObjectStore('watchlist',{keyPath:'itemId'});
+      if(!d.objectStoreNames.contains('settings'))d.createObjectStore('settings',{keyPath:'key'});
+      if(!d.objectStoreNames.contains('opportunities'))d.createObjectStore('opportunities',{keyPath:'key'});
+      if(!d.objectStoreNames.contains('scan_runs')){const s=d.createObjectStore('scan_runs',{keyPath:'id',autoIncrement:true});s.createIndex('ts','ts',{unique:false});}
+      if(d.objectStoreNames.contains('market_stats'))d.deleteObjectStore('market_stats');
+      if(d.objectStoreNames.contains('portfolios'))d.deleteObjectStore('portfolios');
+    };
+    req.onsuccess=()=>{db=req.result;resolve(db);};req.onerror=()=>reject(req.error);
+  });
+}
+function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('DB abort'));});}
+async function dbPut(store,value){const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);await txDone(tx);}
+async function dbPutMany(store,values){if(!values?.length)return;const tx=db.transaction(store,'readwrite'),s=tx.objectStore(store);for(const v of values)s.put(v);await txDone(tx);}
+async function dbGet(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+async function dbGetAll(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}
+async function dbClear(store){const tx=db.transaction(store,'readwrite');tx.objectStore(store).clear();await txDone(tx);}
+
+async function updateDbInfo(){
+  if(!db)return;
+  const [prices,hist,ops]=await Promise.all(['prices','history','opportunities'].map(dbGetAll));
+  const newest=prices.reduce((m,x)=>Math.max(m,x.cachedAt||0),0);
+  el('localDbInfo').textContent=state.lang==='en'?`IndexedDB: ${fmt(prices.length)} prices • ${fmt(hist.length)} volume histories • ${fmt(ops.length)} routes${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`:`IndexedDB: ${fmt(prices.length)} cen • ${fmt(hist.length)} historii wolumenu • ${fmt(ops.length)} tras${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`;
+}
+async function saveWatch(){await dbClear('watchlist');await dbPutMany('watchlist',[...state.watched].map(itemId=>({itemId})));}
+function currentSettings(){
+  const ids=['languageSelect','itemQuery','tier','enchant','quality','scanLimit','mode','premium','setupFee','undercut','transport','maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty','excludeSame','autoRefresh','autoStart','useCache','pageSize'];
+  const v={};for(const id of ids){const x=el(id);if(x)v[id]=x.type==='checkbox'?x.checked:x.value;}
+  v.markets=selectedMarkets();v.categories=selectedCategories();v._uiSchema=7;return v;
+}
+async function saveSettings(){if(!db)return;await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
+async function loadSettings(){
+  const rec=await dbGet('settings','ui');if(!rec?.value)return;
+  const v={...rec.value};
+  // v5.3: price + volume remain the core; bulk plan estimates route quantity.
+  if((+v._uiSchema||1)<7){Object.assign(v,{maxBuyPrice:v.maxBuyPrice||'0',minProfit:v.minProfit||'0',minVolumeDay:'0',bulkBudget:v.bulkBudget||'5000000',bulkVolumeShare:v.bulkVolumeShare||'20',bulkDays:v.bulkDays||'1',bulkMaxQty:v.bulkMaxQty||'10000',quality:v.quality||'all',pageSize:v.pageSize||'100',scanLimit:'0',_uiSchema:7});}
+  for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets'||id==='categories'||id==='_uiSchema')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
+  if(Array.isArray(v.markets)){const set=new Set(v.markets);document.querySelectorAll('.marketCheck').forEach(x=>x.checked=set.has(x.value));}
+  if(Array.isArray(v.categories))setSelectedCategories(v.categories);
+  applyLanguage(v.languageSelect||'pl',false);
+}
+function queueSaveSettings(){clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>saveSettings().catch(()=>{}),350);}
+
+function renderMarkets(){el('markets').innerHTML=MARKETS.map((m,i)=>`<label class="check"><input type="checkbox" class="marketCheck" value="${esc(m.api)}" ${i<7?'checked':''}> ${esc(m.label)}</label>`).join('');}
+function selectedMarkets(){return [...document.querySelectorAll('.marketCheck:checked')].map(x=>x.value);}
+function normalizeItem(x){const id=x.UniqueName||x.uniqueName||x.unique_name||x.item_id||x.id;if(!id)return null;const names=x.LocalizedNames||x.localizedNames||x.localized_names||{};const namePl=names['PL-PL']||names['pl-PL']||null,nameEn=names['EN-US']||names['en-US']||x.LocalizedName||x.name||null,name=namePl||nameEn||id;return{id:String(id),name:String(name),namePl:String(namePl||nameEn||id),nameEn:String(nameEn||namePl||id),index:x.Index??x.index??null};}
+function isLikelyTradeable(id){if(!/^T[2-8]_/.test(id))return false;const bad=['QUESTITEM','UNIQUE','TOKEN','SKILLBOOK','JOURNAL_EMPTY','FURNITURE_','MOBDROP_','TREASURE_','FACTION_','CRYSTAL_','DEBUG','NONTRADABLE'];return !bad.some(k=>id.includes(k));}
+async function fetchJson(url,timeout=18000){const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{cache:'no-store',signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}finally{clearTimeout(t);}}
+const API_REQUEST_GAP_MS=1100;
+let lastApiRequestAt=0;
+async function apiPace(){const wait=Math.max(0,API_REQUEST_GAP_MS-(Date.now()-lastApiRequestAt));if(wait)await sleep(wait);lastApiRequestAt=Date.now();}
+async function fetchJsonRetry(url,timeout=18000,retries=2){let last;for(let attempt=0;attempt<=retries;attempt++){try{await apiPace();return await fetchJson(url,timeout);}catch(e){last=e;if(attempt>=retries)break;const is429=/HTTP 429/.test(String(e?.message||e));await sleep(is429?6500:1800*(attempt+1));}}throw last;}
+function priceUrlFor(batch,markets,qualities){const ids=batch.map(x=>x.id||x).join(',');return `${API}/api/v2/stats/prices/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?locations=${encodeURIComponent(markets.join(','))}&qualities=${qualities.join(',')}`;}
+async function fetchPriceBatchRobust(batch,markets,qualities,depth=0){const url=priceUrlFor(batch,markets,qualities);const j=await fetchJsonRetry(url,22000,2);if(Array.isArray(j)&&j.length)return j;if(!Array.isArray(j))throw new Error('Unexpected AODP price response');if(batch.length<=1||depth>=3)return [];const mid=Math.ceil(batch.length/2),left=batch.slice(0,mid),right=batch.slice(mid);const a=await fetchPriceBatchRobust(left,markets,qualities,depth+1),b=await fetchPriceBatchRobust(right,markets,qualities,depth+1);return a.concat(b);}
+async function loadItems(){
+  let lastErr=null;const meta=await dbGet('settings','items_meta'),cached=await dbGetAll('items');
+  if(cached.length&&cached.some(x=>x.nameEn)&&meta?.fetchedAt&&now()-meta.fetchedAt<7*864e5){setItems(cached);el('dbStatus').textContent=fmt(cached.length);return;}
+  for(const url of ITEMS_URLS){try{const j=await fetchJson(url,25000),arr=Array.isArray(j)?j:(j.items||Object.values(j));let items=arr.map(normalizeItem).filter(Boolean).filter(x=>isLikelyTradeable(x.id));items=[...new Map(items.map(x=>[x.id,x])).values()];setItems(items);await dbClear('items');await dbPutMany('items',items);await dbPut('settings',{key:'items_meta',fetchedAt:now(),source:url});el('dbStatus').textContent=fmt(items.length);return;}catch(e){lastErr=e;}}
+  if(cached.length){setItems(cached);el('dbStatus').textContent=fmt(cached.length);return;}throw lastErr||new Error('Nie udało się pobrać bazy przedmiotów');
+}
+async function pingApi(){try{await fetchJson(`${API}/api/v2/stats/prices/T4_BAG.json?locations=Caerleon&qualities=1`,9000);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';return true;}catch{state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?'błąd/CORS':'offline';el('apiStatus').style.color='var(--bad)';return false;}}
+function itemTierEnchant(id){const base=String(id).split('@')[0],t=+( /^T(\d)_/.exec(base)?.[1]||0),e=String(id).includes('@')?+(String(id).split('@').pop()||0):0;return{tier:t,enchant:e};}
+function liquidItemPriority(id){
+  const {tier,enchant}=itemTierEnchant(id),tierScore=({4:8,5:10,6:11,7:8,8:6})[tier]||0,enchScore=({0:9,1:7,2:5,3:3,4:1})[enchant]||0;
+  let cat=0;if(/_(RUNE|SOUL|RELIC|ESSENCE)(?:_|$)/.test(id))cat=10;else if(/_(ORE|WOOD|HIDE|FIBER|ROCK|METALBAR|PLANKS|LEATHER|CLOTH|STONEBLOCK)/.test(id))cat=7;else if(/_(MEAL|FOOD|POTION)/.test(id))cat=6;else if(/_(BAG|CAPE)/.test(id))cat=5;else if(/_(MAIN_|2H_|ARMOR_|HEAD_|SHOES_|OFF_)/.test(id))cat=4;else if(/MOUNT/.test(id))cat=3;
+  return tierScore+enchScore+cat;
+}
+function balancedItemTake(items,limit){
+  const tierOrder={6:0,5:1,4:2,7:3,8:4};
+  const buckets=new Map();
+  for(const it of items){const te=itemTierEnchant(it.id),cat=categoryForItem(it.id),key=`${cat}|${te.tier}`;if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(it);}
+  for(const arr of buckets.values())arr.sort((a,b)=>liquidItemPriority(b.id)-liquidItemPriority(a.id)||a.id.localeCompare(b.id));
+  const keys=[...buckets.keys()].sort((a,b)=>{const [ca,ta]=a.split('|'),[cb,tb]=b.split('|');const ti=(tierOrder[+ta]??9)-(tierOrder[+tb]??9);return ti||ca.localeCompare(cb);});
+  const out=[];let moved=true;
+  while(out.length<limit&&moved){moved=false;for(const k of keys){const arr=buckets.get(k);if(arr?.length){out.push(arr.shift());moved=true;if(out.length>=limit)break;}}}
+  return out;
+}
+function buildItemSelection(){
+  const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,rawLimit=Number(el('scanLimit').value),limit=Number.isFinite(rawLimit)&&rawLimit>0?Math.floor(rawLimit):0,cats=new Set(selectedCategories());if(!cats.size)return[];
+  let a=state.items.filter(it=>{const id=it.id,{tier:t,enchant:e}=itemTierEnchant(id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(id)))return false;const names=[it.name,it.namePl,it.nameEn,id].filter(Boolean).map(x=>String(x).toLowerCase());if(q&&!names.some(x=>x.includes(q)))return false;return true;});
+  a.sort((x,y)=>liquidItemPriority(y.id)-liquidItemPriority(x.id)||x.id.localeCompare(y.id));
+  if(!limit||limit>=a.length)return a; // 0 = wszystkie pasujące przedmioty
+  if(q)return a.slice(0,limit);
+  return balancedItemTake(a,limit);
+}
+function batchesByUrl(items,locations,qualities){const out=[];let batch=[];const fixed=`${API}/api/v2/stats/prices/.json?locations=${encodeURIComponent(locations.join(','))}&qualities=${encodeURIComponent(qualities.join(','))}`;for(const it of items){const test=[...batch,it.id],len=fixed.length+encodeURIComponent(test.join(',')).length;if(len>3400&&batch.length){out.push(batch);batch=[it];}else batch=test;}if(batch.length)out.push(batch);return out;}
+function normalizePriceRow(r,source='api'){return {...r,item_id:String(r.item_id),city:String(r.city),quality:+r.quality||1,sell_price_min:+r.sell_price_min||0,buy_price_max:+r.buy_price_max||0,key:dbKeyPrice(r),cachedAt:now(),_source:source};}
+async function persistPriceRows(rows){const normalized=rows.map(r=>normalizePriceRow(r,'api'));await dbPutMany('prices',normalized);return normalized;}
+async function cachedRowsFor(items,markets,qualities){const ids=new Set(items.map(x=>x.id)),ms=new Set(markets),qs=new Set(qualities.map(Number)),all=await dbGetAll('prices');return all.filter(r=>ids.has(r.item_id)&&ms.has(r.city)&&qs.has(+r.quality)).map(r=>({...r,_source:'cache'}));}
+function mergeRows(fresh,cached){const m=new Map();for(const r of cached||[])m.set(dbKeyPrice(r),r);for(const r of fresh||[])m.set(dbKeyPrice(r),r);return [...m.values()];}
+
+function cfgFromUI(){return{maxBuyPrice:+el('maxBuyPrice')?.value||0,minProfit:+el('minProfit')?.value||0,minVolumeDay:+el('minVolumeDay')?.value||0,bulkBudget:Math.max(0,+el('bulkBudget')?.value||0),bulkVolumeShare:clamp(+el('bulkVolumeShare')?.value||20,1,100),bulkDays:Math.max(.25,+el('bulkDays')?.value||1),bulkMaxQty:Math.max(1,Math.floor(+el('bulkMaxQty')?.value||10000)),excludeSame:!!el('excludeSame')?.checked,tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0};}
+function calcMode(rowsByItem,itemMap,mode,cfg,diag){
+  const result=[],md=diag.modes[mode]={items:0,qualities:0,pairs:0,rejectSame:0,rejectNonPositive:0,rejectAnomaly:0,flagLowAnomaly:0,acceptedPairs:0,signals:0};
+  for(const [itemId,rows] of rowsByItem){
+    md.items++;
+    const byQ=new Map();for(const r of rows){const q=+r.quality||1;if(!byQ.has(q))byQ.set(q,[]);byQ.get(q).push(r);}
+    for(const qRows of byQ.values()){
+      md.qualities++;
+      const candidateBuys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0);
+      const sourceGuard=marketPriceGuard(candidateBuys,'sell_price_min');
+      // Do not discard extreme lows: they may be genuine mistaken listings. Mark them and verify freshness/history later.
+      const buys=candidateBuys.map(r=>{const low=sourceGuard.isLowOutlier(+r.sell_price_min);if(low)md.flagLowAnomaly++;return {...r,_sourcePeerLow:low};});
+      const candidateDestinations=mode==='instant'
+        ?qRows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destRawPrice:+r.buy_price_max,_destPrice:+r.buy_price_max,_destDate:r.buy_price_max_date}))
+        :qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destRawPrice:+r.sell_price_min,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destDate:r.sell_price_min_date}));
+      // Black Market buy orders are not peers of ordinary city prices and are excluded from the city peer median/MAD.
+      const guard=marketPriceGuard(candidateDestinations.filter(r=>r.city!=='Black Market'),'_destRawPrice');
+      const destinations=candidateDestinations.filter(r=>{
+        const bad=r.city!=='Black Market'&&guard.isOutlier(r._destRawPrice);
+        if(bad)md.rejectAnomaly++;
+        return !bad;
+      });
+      for(const b of buys){for(const d of destinations){
+        md.pairs++;
+        if(cfg.excludeSame&&b.city===d.city){md.rejectSame++;continue;}
+        const buy=Math.round(+b.sell_price_min),gross=mode==='relist'?Math.max(1,Math.floor(+d._destPrice)):Math.round(+d._destPrice);
+        if(!(buy>0&&gross>0))continue;
+        const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup;
+        const profit=gross-fees-buy-cfg.transport;
+        if(!(profit>0)){md.rejectNonPositive++;continue;}
+        const item=itemMap.get(itemId)||{id:itemId,name:itemId,namePl:itemId,nameEn:itemId};
+        result.push({schemaVersion:15,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,rawDestinationPrice:d._destRawPrice,profit,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,taxRatePct:cfg.tax,setupRatePct:mode==='relist'?cfg.setup:0,sourceDate:b.sell_price_min_date,destDate:d._destDate,mode,calculatedAt:now(),priceReference:{peerMedian:guard.median,peerCap:guard.cap,peerCount:guard.count,sourcePeerMedian:sourceGuard.median,sourcePeerFloor:sourceGuard.floor,sourcePeerCount:sourceGuard.count,sourcePeerLowOutlier:!!b._sourcePeerLow,blackMarketSeparated:d.city==='Black Market'},sourceRow:b,destRow:d});
+        md.acceptedPairs++;
+      }}
+    }
+  }
+  result.sort((a,b)=>(b.profit||0)-(a.profit||0));md.signals=result.length;return result;
+}
+function calcOpportunities(rowsByItem,itemMap,mode,cfg){
+  const diag={modes:{},itemsWithRows:rowsByItem.size};
+  let out;if(mode==='smart')out=[...calcMode(rowsByItem,itemMap,'instant',cfg,diag),...calcMode(rowsByItem,itemMap,'relist',cfg,diag)];else out=calcMode(rowsByItem,itemMap,mode,cfg,diag);
+  state.scanDiagnostics={...(state.scanDiagnostics||{}),...diag};return out;
+}
+async function saveOpportunities(ops){await dbClear('opportunities');const cleaned=ops.map(({sourceRow,destRow,...o})=>o);await dbPutMany('opportunities',cleaned);}
+
+function parseHistoryTime(v){
+  if(v===null||v===undefined||v==='')return NaN;
+  if(typeof v==='number'||/^\d+$/.test(String(v))){
+    const n=Number(v);if(!Number.isFinite(n))return NaN;
+    if(n>6e17)return ((n-621355968000000000)/10000);
+    if(n>1e12)return n;
+    if(n>1e9)return n*1000;
+  }
+  const t=parseAodpTime(v);return Number.isFinite(t)?t:NaN;
+}
+function utcDayKey(ms){const d=new Date(ms);return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;}
+function historyMetrics(data,windowDays=30){
+  const raw=(data||[]).map((x,i)=>({price:+x.avg_price||0,volume:Math.max(0,+x.item_count||0),time:parseHistoryTime(x.timestamp),i})).filter(x=>x.price>0||x.volume>0);if(!raw.length)return null;
+  const validTimes=raw.filter(x=>Number.isFinite(x.time)),todayKey=utcDayKey(now()),dailyMap=new Map();
+  if(validTimes.length){for(const x of validTimes){const k=utcDayKey(x.time),r=dailyMap.get(k)||{volume:0,priceVol:0,volForPrice:0,prices:[]};r.volume+=x.volume;if(x.price>0){r.prices.push(x.price);if(x.volume>0){r.priceVol+=x.price*x.volume;r.volForPrice+=x.volume;}}dailyMap.set(k,r);}}
+  const complete=[];if(validTimes.length){for(let n=1;n<=windowDays;n++){const d=new Date(now()-n*864e5),k=utcDayKey(d.getTime()),r=dailyMap.get(k);complete.push({day:k,volume:r?.volume||0,price:r?(r.volForPrice>0?r.priceVol/r.volForPrice:median(r.prices.filter(Boolean))):NaN});}}else{const ordered=[...raw].slice(-windowDays).reverse();for(let n=0;n<windowDays;n++){const x=ordered[n];complete.push({day:`fallback-${n}`,volume:x?.volume||0,price:x?.price||NaN});}}
+  const today=dailyMap.get(todayKey)?.volume||0,win=n=>{const a=complete.slice(0,n),vols=a.map(x=>x.volume),total=vols.reduce((p,c)=>p+c,0),active=vols.filter(v=>v>0).length,avg=total/Math.max(1,n),med=median(vols),activeRatio=active/Math.max(1,n);return{days:n,total,avg,medianDaily:Number.isFinite(med)?med:0,active,activeRatio};};
+  const priceWin=n=>{const a=complete.slice(0,n).filter(x=>Number.isFinite(x.price)&&x.price>0),prices=a.map(x=>x.price),weighted=a.filter(x=>x.volume>0),weight=weighted.reduce((s,x)=>s+x.volume,0),vwap=weight>0?weighted.reduce((s,x)=>s+x.price*x.volume,0)/weight:mean(prices),med=prices.length?median(prices):NaN,mad=prices.length?median(prices.map(v=>Math.abs(v-med))):NaN,scale=Number.isFinite(mad)?1.4826*mad:NaN,lo=Number.isFinite(scale)&&scale>0?Math.max(1,med-3*scale):med,hi=Number.isFinite(scale)&&scale>0?med+3*scale:med,robustWeighted=a.filter(x=>x.volume>0).map(x=>({...x,wp:clamp(x.price,lo,hi)})),robustWeight=robustWeighted.reduce((s,x)=>s+x.volume,0),robustVwap=prices.length?(robustWeight>0?robustWeighted.reduce((s,x)=>s+x.wp*x.volume,0)/robustWeight:median(prices)):NaN;return{days:n,points:a.length,median:Number.isFinite(med)?med:null,avg:prices.length?mean(prices):null,vwap:Number.isFinite(vwap)?vwap:null,robustVwap:Number.isFinite(robustVwap)?robustVwap:null,mad:Number.isFinite(mad)?mad:null};};
+  const w1=win(1),w3=win(3),w7=win(7),w14=win(14),w30=win(30),p3=priceWin(3),p7=priceWin(7),p14=priceWin(14),p30=priceWin(30),prices=raw.filter(x=>x.price>0).map(x=>x.price),volumes=raw.map(x=>x.volume),med=median(prices),avg=mean(prices),mad=median(prices.map(x=>Math.abs(x-med))),robustVol=med>0?(1.4826*mad/med):1,totalVol=w30.total,dailyVol=w30.avg,activeDailyVol=mean(volumes)||0,sumVol=raw.reduce((a,x)=>a+x.volume,0),vwap=sumVol>0?raw.reduce((a,x)=>a+x.price*x.volume,0)/sumVol:avg;
+  const regularity=clamp((.65*w30.activeRatio+.35*w7.activeRatio)*100),trendPct=w14.avg>0?(w3.avg/w14.avg-1)*100:0,nz=complete.slice(0,30).map(x=>x.volume),volMean=mean(nz)||0,volSd=Math.sqrt(mean(nz.map(v=>(v-volMean)**2))||0),volumeCv=volMean>0?volSd/volMean:9,stability=clamp(100-volumeCv*32);
+  return{median:med,avg,vwap,mad,robustVol,dailyVol,activeDailyVol,totalVol,windowDays,points:raw.length,todayVol:today,volumes:{d1:w1,d3:w3,d7:w7,d14:w14,d30:w30},prices:{d3:p3,d7:p7,d14:p14,d30:p30},regularity,trendPct,volumeCv,volumeStability:stability};
+}
+function volumeHistoryKey(itemId,city,quality){return `${itemId}|${city}|${quality}`;}
+function historyItemBatches(itemIds,city,qualities,start,end){
+  const out=[];let batch=[];
+  const fixed=`${API}/api/v2/stats/history/.json?date=${start}&end_date=${end}&locations=${encodeURIComponent(city)}&qualities=${qualities.join(',')}&time-scale=24`;
+  for(const id of itemIds){const test=[...batch,id],len=fixed.length+encodeURIComponent(test.join(',')).length;if(len>3200&&batch.length){out.push(batch);batch=[id];}else batch=test;}
+  if(batch.length)out.push(batch);return out;
+}
+async function loadVolumeHistoriesForOpportunities(ops,qualities,force=false){
+  if(!ops?.length)return {cache:new Map(),failedKeys:new Set(),jobs:0,errors:0};
+  const wantedByCity=new Map();
+  for(const o of ops){
+    if(!wantedByCity.has(o.source))wantedByCity.set(o.source,new Set());wantedByCity.get(o.source).add(o.itemId);
+    if(o.dest!=='Black Market'){if(!wantedByCity.has(o.dest))wantedByCity.set(o.dest,new Set());wantedByCity.get(o.dest).add(o.itemId);}
+  }
+  const all=await dbGetAll('history'),cache=new Map(all.map(x=>[x.key,x]));
+  const endD=new Date(),startD=new Date(now()-32*864e5),ds=d=>d.toISOString().slice(0,10),startS=ds(startD),endS=ds(endD),jobs=[];
+  for(const [city,set] of wantedByCity){
+    const stale=[];
+    for(const id of set){let needs=force;if(!needs){for(const q of qualities){const c=cache.get(volumeHistoryKey(id,city,q));if(!(c?.fetchedAt&&c?.rangeDays>=32&&now()-c.fetchedAt<4*36e5)){needs=true;break;}}}if(needs)stale.push(id);}
+    for(const batch of historyItemBatches(stale,city,qualities,startS,endS))jobs.push({city,batch});
+  }
+  const failedKeys=new Set();let next=0,completed=0,errors=0;
+  const processJob=async(job,idx)=>{
+    if(state.stop)return;
+    const ids=job.batch.join(','),url=`${API}/api/v2/stats/history/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?date=${startS}&end_date=${endS}&locations=${encodeURIComponent(job.city)}&qualities=${qualities.join(',')}&time-scale=24`;
+    let rows=null;
+    try{const j=await fetchJsonRetry(url,30000,2);if(!Array.isArray(j))throw new Error('Unexpected AODP history response');rows=j;}
+    catch{errors++;for(const id of job.batch)for(const q of qualities)failedKeys.add(volumeHistoryKey(id,job.city,q));}
+    if(rows!==null){
+      const returned=new Map();
+      for(const h of rows){const itemId=String(h.item_id||''),city=String(h.location||job.city),q=+h.quality||1;if(!itemId)continue;const rec={key:volumeHistoryKey(itemId,city,q),itemId,city,quality:q,data:Array.isArray(h.data)?h.data:[],rangeDays:32,timeScale:24,fetchedAt:now(),confirmed:true};returned.set(rec.key,rec);cache.set(rec.key,rec);}
+      const writes=[...returned.values()];
+      // Only a successful API response may confirm a missing item/quality as zero volume.
+      for(const id of job.batch){for(const q of qualities){const key=volumeHistoryKey(id,job.city,q);if(!returned.has(key)){const rec={key,itemId:id,city:job.city,quality:+q,data:[],rangeDays:32,timeScale:24,fetchedAt:now(),confirmed:true};writes.push(rec);cache.set(key,rec);}}}
+      await dbPutMany('history',writes);
+    }
+    completed++;setProgress(76+(completed/Math.max(1,jobs.length))*22,state.lang==='en'?`Volume ${completed}/${jobs.length} • ${errors} API errors`:`Wolumen ${completed}/${jobs.length} • błędy API: ${errors}`);
+  };
+  const worker=async()=>{while(!state.stop){const i=next++;if(i>=jobs.length)break;await processJob(jobs[i],i);}};
+  await Promise.all(Array.from({length:Math.min(1,jobs.length)},()=>worker()));
+  return {cache,failedKeys,jobs:jobs.length,errors};
+}
+function volumeRecordState(rec,failed){
+  if(!rec)return failed?'error':'missing';
+  const age=Number.isFinite(+rec.fetchedAt)?now()-+rec.fetchedAt:Infinity;
+  if(failed)return age<4*36e5?'error-cache':'stale-cache';
+  return age<4*36e5?'fresh':'stale-cache';
+}
+function attachSimpleVolume(o,cache,failedKeys=new Set()){
+  const srcKey=volumeHistoryKey(o.itemId,o.source,o.quality),dstKey=o.dest==='Black Market'?null:volumeHistoryKey(o.itemId,o.dest,o.quality),srcRec=cache.get(srcKey),dstRec=dstKey?cache.get(dstKey):null,srcState=volumeRecordState(srcRec,failedKeys.has(srcKey)),dstState=o.dest==='Black Market'?'unavailable':volumeRecordState(dstRec,failedKeys.has(dstKey)),sm=srcRec?historyMetrics(srcRec.data||[]):null,dm=dstRec?historyMetrics(dstRec.data||[]):null;
+  const buyDay=sm?.volumes?.d7?.avg??(srcRec?.confirmed?0:null),sellDay=o.dest==='Black Market'?null:(dm?.volumes?.d7?.avg??(dstRec?.confirmed?0:null)),tradeDay=Number.isFinite(buyDay)&&Number.isFinite(sellDay)?Math.min(buyDay,sellDay):null,src7=sm?.volumes?.d7?.total??(srcRec?.confirmed?0:null),dst7=o.dest==='Black Market'?null:(dm?.volumes?.d7?.total??(dstRec?.confirmed?0:null)),src30=sm?.volumes?.d30?.total??(srcRec?.confirmed?0:null),dst30=o.dest==='Black Market'?null:(dm?.volumes?.d30?.total??(dstRec?.confirmed?0:null)),trade7=Number.isFinite(src7)&&Number.isFinite(dst7)?Math.min(src7,dst7):null,trade30=Number.isFinite(src30)&&Number.isFinite(dst30)?Math.min(src30,dst30):null;
+  o.volume={source:sm?.volumes||null,destination:dm?.volumes||null,buyDaily:buyDay,sellDaily:sellDay,effectiveDaily:tradeDay,trade7,trade30,profitVolumeDaily:0,sourceStatus:srcState,destinationStatus:dstState};
+  const destinationHistoryOutlier=o.dest!=='Black Market'&&historyPriceOutlier(o.sell,dm,'high'),sourceHistoryLowWarning=historyPriceOutlier(o.buy,sm,'low'),sourcePeerLowWarning=!!o.priceReference?.sourcePeerLowOutlier,sourceWarning=sourcePeerLowWarning||sourceHistoryLowWarning;
+  o.priceGuard={...(o.priceReference||{}),historyMedian:dm?.median??null,historyReference:historyReferencePrice(dm),sourceHistoryMedian:sm?.median??null,sourceHistoryReference:historyReferencePrice(sm),historyOutlier:destinationHistoryOutlier,destinationHistoryOutlier,sourceHistoryLowWarning,sourcePeerLowWarning,sourceWarning};
+  // Only an implausibly HIGH destination is hard-rejected. A very low source is retained and flagged.
+  o.invalidPrice=destinationHistoryOutlier;
+  o.volume.profitVolumeDaily=destinationHistoryOutlier?0:(Number.isFinite(tradeDay)?Math.max(0,o.profit)*tradeDay:0);o.profitVolumeDaily=o.volume.profitVolumeDaily;o.history={source:sm,destination:dm,points:srcRec?.data||[],basis:'AODP sell history; median-first robust 7/14/30d references; not current order-book depth'};o.reality=marketRealityAssessment(o,sm,dm);return o;
+}
+async function enrichAllVolume(force=false){
+  if(!state.opportunities.length)return;const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value];el('validateBtn').disabled=true;el('validateBtn').innerHTML=`<span class="spinner"></span>${tr('Wolumen…','Volume…')}`;
+  try{const result=await loadVolumeHistoriesForOpportunities(state.opportunities,qualities,force);state.volumeFailures=result.failedKeys;state.volumeStats={jobs:result.jobs,errors:result.errors};for(const o of state.opportunities)attachSimpleVolume(o,result.cache,result.failedKeys);const before=state.opportunities.length;state.opportunities=state.opportunities.filter(o=>!o.invalidPrice);markRouteRanks(state.opportunities);const removed=before-state.opportunities.length;if(state.scanDiagnostics)state.scanDiagnostics.historyPriceAnomalies=(state.scanDiagnostics.historyPriceAnomalies||0)+removed;await saveOpportunities(state.opportunities);state.page=1;render();await updateDbInfo();}finally{el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Odśwież wolumen','Refresh volume');}
+}
+
+function diagnosticTotals(){
+  const d=state.scanDiagnostics||{},m=Object.values(d.modes||{}),sum=k=>m.reduce((a,x)=>a+(x[k]||0),0);return{pairs:sum('pairs'),same:sum('rejectSame'),nonPositive:sum('rejectNonPositive'),anomaly:sum('rejectAnomaly'),lowWarnings:sum('flagLowAnomaly'),accepted:sum('acceptedPairs'),signals:sum('signals')};
+}
+function renderScanDiagnostics(){
+  const d=state.scanDiagnostics;if(!d||!el('scanDiagnostics'))return;const t=diagnosticTotals(),shown=filteredResults().length;
+  const volErr=state.volumeStats?.errors||0,volJobs=state.volumeStats?.jobs||0,histAnom=d.historyPriceAnomalies||0;const msg=state.lang==='en'?`Selected ${fmt(d.selectedItems||0)} / matching ${fmt(d.matchingItems||0)} • API rows ${fmt(d.apiRows||0)} • item IDs with data ${fmt(d.itemsWithRows||0)} • pairs ${fmt(t.pairs)} • high price anomalies rejected ${fmt((t.anomaly||0)+histAnom)} • low-price warnings ${fmt(t.lowWarnings||0)} • non-positive ${fmt(t.nonPositive)} • profitable routes ${fmt(state.opportunities.length)} • shown ${fmt(shown)} • volume batches ${fmt(volJobs)} • volume API errors ${fmt(volErr)}`:`Wybrano ${fmt(d.selectedItems||0)} z ${fmt(d.matchingItems||0)} pasujących • rekordy API ${fmt(d.apiRows||0)} • itemy z danymi ${fmt(d.itemsWithRows||0)} • pary ${fmt(t.pairs)} • odrzucone wysokie anomalie ${fmt((t.anomaly||0)+histAnom)} • ostrzeżenia niskiej ceny ${fmt(t.lowWarnings||0)} • niedodatnie ${fmt(t.nonPositive)} • zyskowne trasy ${fmt(state.opportunities.length)} • pokazane ${fmt(shown)} • partie wolumenu ${fmt(volJobs)} • błędy API wolumenu ${fmt(volErr)}`;
+  el('scanDiagnostics').textContent=msg;
+  if(el('kpiItemsMeta'))el('kpiItemsMeta').textContent=state.lang==='en'?`${fmt(d.apiRows||0)} API rows`:`${fmt(d.apiRows||0)} rekordów API`;
+  if(!shown&&el('emptyState')){
+    let hint=state.lang==='en'?'No opportunities after current result filters. ':'Brak okazji po obecnych filtrach wyników. ';
+    if(!d.apiRows)hint+=state.lang==='en'?'The API returned no price rows for this selection.':'API nie zwróciło rekordów cen dla tego wyboru.';
+    else if(!state.opportunities.length)hint+=state.lang==='en'?'No positive-profit cross-market routes were found in the fetched price snapshot.':'W pobranym zestawie cen nie znaleziono tras między marketami z dodatnim zyskiem po opłatach.';
+    else hint+=state.lang==='en'?'Profitable routes exist — lower minimum profit or minimum volume.':'Zyskowne trasy istnieją — zmniejsz minimalny zysk albo minimalny wolumen.';
+    el('emptyState').textContent=hint;
+  }
+}
+function countMatchingItems(){const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,cats=new Set(selectedCategories());return state.items.filter(it=>{const {tier:t,enchant:e}=itemTierEnchant(it.id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(it.id)))return false;if(q){const names=[it.name,it.namePl,it.nameEn,it.id].filter(Boolean).map(x=>String(x).toLowerCase());if(!names.some(x=>x.includes(q)))return false;}return true;}).length;}
+
+async function scan(opts={}){
+  if(el('scanBtn').disabled&&!opts.auto)return;const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert(tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
+  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;
+  const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,state.lang==='en'?`${opts.auto?'Auto-scan':'Start'}: ${fmt(items.length)} items…`:`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów…`);
+  const normalizedFresh=[];const failedPriceItemIds=new Set();let errors=0,processedItems=0,rawApiRows=0,usefulApiRows=0;
+  for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const batch=batches[i];try{const j=await fetchPriceBatchRobust(batch,markets,qualities);rawApiRows+=Array.isArray(j)?j.length:0;const returned=Array.isArray(j)?j:[];if(returned.length){const saved=await persistPriceRows(returned);normalizedFresh.push(...saved);usefulApiRows+=saved.filter(r=>(+r.sell_price_min||0)>0||(+r.buy_price_max||0)>0||(+r.sell_price_max||0)>0||(+r.buy_price_min||0)>0).length;}state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;for(const it of batch)failedPriceItemIds.add(it.id);state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}processedItems+=batch.length;state.scanDiagnostics.apiRows=usefulApiRows;setProgress((i+1)/batches.length*70,state.lang==='en'?`Prices: ${fmt(processedItems)} / ${fmt(items.length)} items • batch ${i+1}/${batches.length} • useful rows ${fmt(usefulApiRows)}`:`Ceny: ${fmt(processedItems)} / ${fmt(items.length)} przedmiotów • partia ${i+1}/${batches.length} • użyteczne rekordy ${fmt(usefulApiRows)}`);}
+  state.scanDiagnostics.apiRows=usefulApiRows;state.scanDiagnostics.rawApiRows=rawApiRows;
+  // Cache is allowed ONLY for item IDs belonging to a price batch that actually failed.
+  // A successful zero/no-order response therefore cannot resurrect an older positive quote from local.db.
+  let cached=[];if(el('useCache').checked&&failedPriceItemIds.size){const failedItems=items.filter(x=>failedPriceItemIds.has(x.id));cached=await cachedRowsFor(failedItems,markets,qualities);}const rows=mergeRows(normalizedFresh,cached);state.raw=rows;
+  if(!rows.length){el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,tr('Brak danych API i brak lokalnego cache.','No API data and no local cache.'));await updateDbInfo();return;}
+  const map=new Map(items.map(x=>[x.id,x])),byItem=new Map();for(const r of rows){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}
+  const cfg=cfgFromUI();state.opportunities=calcOpportunities(byItem,map,el('mode').value,cfg);markRouteRanks(state.opportunities);render();renderScanDiagnostics();
+  if(!state.stop&&state.opportunities.length){setProgress(74,state.lang==='en'?`Found ${fmt(state.opportunities.length)} profitable routes. Loading volume…`:`Znaleziono ${fmt(state.opportunities.length)} zyskownych tras. Pobieram wolumen…`);await enrichAllVolume(false);}else await saveOpportunities(state.opportunities);
+  await dbPut('scan_runs',{ts:now(),items:items.length,markets,qualities,apiRows:usefulApiRows,rawApiRows,cacheRows:cached.length,failedPriceItems:failedPriceItemIds.size,errors,opportunities:state.opportunities.length,auto:!!opts.auto});
+  el('kpiItems').textContent=fmt(items.length);el('lastScan').textContent=new Date().toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});el('scanBtn').disabled=false;el('stopBtn').disabled=true;el('validateBtn').disabled=state.opportunities.length===0;renderScanDiagnostics();setProgress(100,state.stop?tr('Skan przerwany.','Scan stopped.'):(state.lang==='en'?`Done: ${fmt(state.opportunities.length)} profitable routes with prices and volume.`:`Gotowe: ${fmt(state.opportunities.length)} zyskownych tras z cenami i wolumenem.`));await updateDbInfo();render();await saveSettings();
+}
+
+function orderTotalsForQty(o,qty){
+  qty=Math.max(0,Math.floor(qty||0));
+  const buyCost=qty*Math.max(0,+o.buy||0),revenue=qty*Math.max(0,+o.sell||0),transportTotal=qty*Math.max(0,+o.transportCost||0),taxTotal=qty>0?Math.ceil(revenue*Math.max(0,+o.taxRatePct||0)/100):0,setupTotal=o.mode==='relist'&&qty>0?Math.ceil(revenue*Math.max(0,+o.setupRatePct||0)/100):0;
+  const capital=buyCost+transportTotal+setupTotal,totalProfit=revenue-taxTotal-setupTotal-buyCost-transportTotal;
+  return{qty,buyCost,revenue,transportTotal,taxTotal,setupTotal,capital,totalProfit,effectiveProfitUnit:qty>0?totalProfit/qty:0};
+}
+function budgetQtyCapFor(o,budget,maxQty){
+  maxQty=Math.max(0,Math.floor(maxQty||0));if(!(budget>0)||!maxQty)return 0;
+  let lo=0,hi=maxQty;while(lo<hi){const mid=Math.ceil((lo+hi)/2),need=orderTotalsForQty(o,mid).capital;if(need<=budget)lo=mid;else hi=mid-1;}return lo;
+}
+function bulkPlanFor(o,cfg){
+  const daily=Number.isFinite(o.volume?.effectiveDaily)?Math.max(0,o.volume.effectiveDaily):0,share=clamp(cfg.bulkVolumeShare,1,100)/100;
+  const volumeCap=daily>0?Math.max(0,Math.floor(daily*cfg.bulkDays*share)):0;
+  const routeCap=Math.max(0,Math.min(volumeCap,Math.max(0,Math.floor(cfg.bulkMaxQty||0))));
+  const budgetCap=budgetQtyCapFor(o,cfg.bulkBudget,routeCap),qty=Math.max(0,Math.min(routeCap,budgetCap));
+  const totals=orderTotalsForQty(o,qty),approxUnitCapital=Math.max(1,(+o.buy||0)+(+o.transportCost||0)+(o.mode==='relist'?(+o.sell||0)*(+o.setupRatePct||0)/100:0));
+  const sellRate=daily*share;
+  return{...totals,unitCapital:qty>0?totals.capital/qty:approxUnitCapital,daysAtVolume:sellRate>0?qty/sellRate:null,daysAtFullVolume:daily>0?qty/daily:null,volumeCap,budgetCap,volumeShare:share};
+}
+function applyBulkPlan(o,cfg){o.bulk=bulkPlanFor(o,cfg);return o;}
+function applyBulkPreset(){
+  setSelectedCategories(['bulkMaterials']);
+  el('itemQuery').value='';el('tier').value='all';el('enchant').value='0';el('quality').value='1';el('mode').value='relist';el('scanLimit').value='0';
+  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';el('sortBy').value='bulkProfit';state.page=1;queueSaveSettings();render();
+  setProgress(0,tr('Preset hurtowy gotowy — uruchom skan.','Bulk preset ready — run the scan.'));
+}
+
+function filteredResults(){
+  let a=[...state.opportunities],q=el('resultSearch').value.trim().toLowerCase(),cfg=cfgFromUI();
+  if(q)a=a.filter(o=>[displayOpportunityName(o),o.itemNamePl,o.itemNameEn,o.itemId,o.source,o.dest].some(x=>String(x).toLowerCase().includes(q)));
+  if(state.watchOnly)a=a.filter(o=>state.watched.has(o.itemId));
+  if(cfg.maxBuyPrice>0)a=a.filter(o=>(o.buy||Infinity)<=cfg.maxBuyPrice);
+  a=a.filter(o=>(o.profit??-Infinity)>=cfg.minProfit);
+  if(cfg.minVolumeDay>0)a=a.filter(o=>Number.isFinite(o.volume?.effectiveDaily)&&(o.volume.effectiveDaily||0)>=cfg.minVolumeDay);
+  a.forEach(o=>applyBulkPlan(o,cfg));
+  const sort=el('sortBy').value;
+  a.sort((x,y)=>sort==='bulkProfit'?(y.bulk?.totalProfit||0)-(x.bulk?.totalProfit||0):sort==='reality'?(y.reality?.score||0)-(x.reality?.score||0)||((y.bulk?.totalProfit||0)-(x.bulk?.totalProfit||0)):sort==='profit'?y.profit-x.profit:sort==='volume'?(y.volume?.effectiveDaily??-1)-(x.volume?.effectiveDaily??-1):sort==='buy'?x.buy-y.buy:sort==='sell'?y.sell-x.sell:(y.profitVolumeDaily||0)-(x.profitVolumeDaily||0));return a;
+}
+function volumeFmt(v,status='fresh'){
+  if(status==='error'&&!Number.isFinite(v))return tr('błąd API','API error');
+  if(!Number.isFinite(v))return '—';
+  const n=v.toLocaleString(locale(),{maximumFractionDigits:1});
+  return (status==='error-cache'||status==='stale-cache')?`${n} ${tr('(cache)','(cache)')}`:n;
+}
+function simpleModeLabel(o){if(o.dest==='Black Market')return 'Black Market';return o.mode==='instant'?tr('Do buy orderu','To buy order'):tr('Wystaw sell order','List sell order');}
+function render(){
+  const all=filteredResults(),pageSize=Math.max(25,+el('pageSize')?.value||state.pageSize||100);state.pageSize=pageSize;
+  const pages=Math.max(1,Math.ceil(all.length/pageSize));state.page=Math.max(1,Math.min(state.page,pages));const start=(state.page-1)*pageSize,pageRows=all.slice(start,start+pageSize);
+  if(el('resultCountMeta'))el('resultCountMeta').textContent=state.lang==='en'?`${fmt(all.length)} shown / ${fmt(state.opportunities.length)} profitable routes • page ${state.page}/${pages}`:`${fmt(all.length)} pokazanych / ${fmt(state.opportunities.length)} zyskownych tras • strona ${state.page}/${pages}`;
+  el('emptyState').style.display=all.length?'none':'block';
+  el('resultsBody').innerHTML=pageRows.map((o,i)=>{const v=o.volume||{},bulk=o.bulk||bulkPlanFor(o,cfgFromUI()),r=o.reality||{},gc=r.grade==='A'?'good':r.grade==='B'?'info':r.grade==='C'?'warn':'bad';return `<tr><td><button class="star ${state.watched.has(o.itemId)?'on':''}" data-watch="${esc(o.itemId)}">★</button></td><td><div class="itemcell"><img loading="lazy" src="${itemIcon(o.itemId,o.quality)}" alt=""><div><div class="itemname">${esc(displayOpportunityName(o))}</div><div class="itemid">${esc(o.itemId)} • ${qualityName[o.quality]||o.quality}</div></div></div></td><td><span class="tag info">${esc(simpleModeLabel(o))}</span></td><td class="route"><b>${esc(marketLabel(o.source))}</b>${o.bestSource?` <span class="tag good">${tr('najtańszy','cheapest')}</span>`:''}${o.priceGuard?.sourceWarning?` <span class="tag warn">${tr('sprawdź cenę','verify price')}</span>`:''}</td><td>${fmt(o.buy)}</td><td class="route"><b>${esc(marketLabel(o.dest))}</b>${o.bestDestination?` <span class="tag good">${tr('#1 sprzedaż','#1 sell')}</span>`:''}</td><td>${fmt(o.sell)}</td><td class="profit">+${fmt(o.profit)}</td><td><span class="tag ${gc}">${r.grade||'—'} ${esc(r.label||'')}</span><div class="itemid">${Number.isFinite(r.score)?r.score+'/100':'—'} • ${tr('dane','data')} ${Number.isFinite(r.dataCompleteness)?r.dataCompleteness+'%':'—'} • ${ageText(r.worstAge)}</div></td><td>${Number.isFinite(r.sellRef)?fmt(r.sellRef):'—'}</td><td><b>${volumeFmt(v.effectiveDaily,(v.sourceStatus==='error'||v.destinationStatus==='error')?'error':(v.sourceStatus?.includes('cache')||v.destinationStatus?.includes('cache'))?'stale-cache':'fresh')}</b></td><td><b>${fmt(bulk.qty)}</b></td><td>${fmt(bulk.capital)}</td><td class="profit">+${fmt(bulk.totalProfit)}</td><td class="profit">${fmt(o.profitVolumeDaily||0)}</td><td><button class="btn" data-detail="${i}">${tr('Szczegóły','Details')}</button></td></tr>`;}).join('');
+  const bestProfit=all.reduce((m,x)=>Math.max(m,x.profit||0),0),withVol=all.filter(x=>Number.isFinite(x.volume?.effectiveDaily)),maxVol=withVol.reduce((m,x)=>Math.max(m,x.volume.effectiveDaily||0),0),bestTrade=all.reduce((m,x)=>Math.max(m,x.profitVolumeDaily||0),0);el('kpiCount').textContent=fmt(all.length);el('kpiProfit').textContent=fmt(bestProfit);el('kpiVolume').textContent=withVol.length?volumeFmt(maxVol):'—';el('kpiTradeProfit').textContent=fmt(bestTrade);el('kpiVolumeRows').textContent=fmt(withVol.length);
+  if(el('pageInfo'))el('pageInfo').textContent=state.lang==='en'?`Page ${state.page} of ${pages} • rows ${all.length?start+1:0}–${Math.min(start+pageSize,all.length)} of ${all.length}`:`Strona ${state.page} z ${pages} • wiersze ${all.length?start+1:0}–${Math.min(start+pageSize,all.length)} z ${all.length}`;
+  if(el('prevPage'))el('prevPage').disabled=state.page<=1;if(el('nextPage'))el('nextPage').disabled=state.page>=pages;
+  renderScanDiagnostics();document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=async()=>{const id=b.dataset.watch;state.watched.has(id)?state.watched.delete(id):state.watched.add(id);await saveWatch();render();});document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(pageRows[+b.dataset.detail]));
+}
+function openDetail(o){
+  el('detailTitle').textContent=`${displayOpportunityName(o)} — ${marketLabel(o.source)} → ${marketLabel(o.dest)}`;const v=o.volume||{};
+  const bulk=o.bulk||bulkPlanFor(o,cfgFromUI()),r=o.reality||{},gc=r.grade==='A'?'good':r.grade==='B'?'info':r.grade==='C'?'warn':'bad';el('detailCards').innerHTML=`<div class="detail-card"><small>${tr('Cena kupna','Buy price')}</small><b>${fmt(o.buy)}</b></div><div class="detail-card"><small>${tr('Cena sprzedaży','Sell price')}</small><b>${fmt(o.sell)}</b></div><div class="detail-card"><small>${tr('Zysk top quote / szt.','Top-quote profit / unit')}</small><b class="profit">+${fmt(o.profit)}</b></div><div class="detail-card"><small>${tr('Ocena realności','Market reality')}</small><b><span class="tag ${gc}">${r.grade||'—'} ${esc(r.label||'')}</span> ${Number.isFinite(r.score)?r.score+'/100':'—'}</b></div><div class="detail-card"><small>${tr('Kompletność danych','Data completeness')}</small><b>${Number.isFinite(r.dataCompleteness)?r.dataCompleteness+'%':'—'}</b></div><div class="detail-card"><small>${tr('Ref. kupna 7d','7d buy ref.')}</small><b>${Number.isFinite(r.buyRef)?fmt(r.buyRef):'—'}</b></div><div class="detail-card"><small>${tr('Ref. sprzedaży 7d','7d sell ref.')}</small><b>${Number.isFinite(r.sellRef)?fmt(r.sellRef):'—'}</b></div><div class="detail-card"><small>${tr('Wiek ceny kupna','Buy price age')}</small><b>${ageText(r.buyAge)}</b></div><div class="detail-card"><small>${tr('Wiek ceny sprzedaży','Sell price age')}</small><b>${ageText(r.sellAge)}</b></div><div class="detail-card"><small>${tr('Wolumen handlowy / dzień','Trade volume / day')}</small><b>${volumeFmt(v.effectiveDaily,(v.sourceStatus==='error'||v.destinationStatus==='error')?'error':(v.sourceStatus?.includes('cache')||v.destinationStatus?.includes('cache'))?'stale-cache':'fresh')}</b></div><div class="detail-card"><small>${tr('Plan szt.','Planned units')}</small><b>${fmt(bulk.qty)}</b></div><div class="detail-card"><small>${tr('Kapitał planu','Plan capital')}</small><b>${fmt(bulk.capital)}</b></div><div class="detail-card"><small>${tr('Szac. zysk transportu','Est. trip profit')}</small><b class="profit">+${fmt(bulk.totalProfit)}</b></div><div class="detail-card"><small>${tr('Efektywny zysk / szt. planu','Effective plan profit / unit')}</small><b class="profit">${bulk.qty>0?'+'+fmt(bulk.effectiveProfitUnit):'—'}</b></div><div class="detail-card"><small>${tr('Czas sprzedaży planu','Plan sell-through')}</small><b>${Number.isFinite(bulk.daysAtVolume)?bulk.daysAtVolume.toLocaleString(locale(),{maximumFractionDigits:2})+' d':'—'}</b></div><div class="detail-card"><small>${tr('Vol. zakup / dzień','Buy-market volume / day')}</small><b>${volumeFmt(v.buyDaily,v.sourceStatus)}</b></div><div class="detail-card"><small>${tr('Vol. sprzedaż / dzień','Sell-market volume / day')}</small><b>${volumeFmt(v.sellDaily,v.destinationStatus)}</b></div><div class="detail-card"><small>${tr('Historyczny zysk / szt.','Historical profit / unit')}</small><b class="${Number.isFinite(r.repeatableProfit)&&r.repeatableProfit>0?'profit':''}">${Number.isFinite(r.repeatableProfit)?fmt(r.repeatableProfit):'—'}</b></div>`;
+  const data=state.history.get(`${o.itemId}|${o.source}|${o.quality}`)||o.history?.points||[];drawChart(data,o.buy);const note=o.dest==='Black Market'?tr('Dla Black Market publiczna historia AODP nie daje porównywalnego wolumenu aktualnego buy orderu, dlatego wolumen sprzedaży i wolumen handlowy są oznaczone jako brak.','For Black Market, public AODP history does not provide comparable current buy-order volume, so destination/trade volume is unavailable.'):tr('Wolumen jest liczony z historycznych sell orders AODP. Wolumen handlowy to mniejszy z wolumenu rynku zakupu i sprzedaży. Nie jest to głębokość bieżącego order booka.','Volume is calculated from AODP historical sell orders. Trade volume is the lower of buy-market and sell-market activity. It is not current order-book depth.');el('detailNote').innerHTML=`${tr('Kup','Buy')}: <b>${fmt(o.buy)}</b> — ${esc(marketLabel(o.source))}. ${tr('Sprzedaj','Sell')}: <b>${fmt(o.sell)}</b> — ${esc(marketLabel(o.dest))}. ${tr('Zysk po opłatach','Profit after fees')}: <b class="profit">+${fmt(o.profit)}</b> / ${tr('szt.','unit')}.<br>${tr('Interpretacja v5.4.2','v5.4.2 interpretation')}: <b>${Number.isFinite(r.score)?r.score+'/100':'—'}</b> — ${esc(r.label||tr('brak oceny','not rated'))}. ${Number.isFinite(r.repeatableProfit)?`${tr('Historyczny spread 7d po opłatach','7d historical spread after fees')}: <b class="${r.repeatableProfit>0?'profit':''}">${fmt(r.repeatableProfit)}</b> / ${tr('szt.','unit')}.`:''}<br><span class="muted">${o.priceGuard?.sourceWarning?`<b>${tr('Uwaga: bardzo niska cena zakupu została zachowana, ale wymaga sprawdzenia w grze.','Warning: the extremely low buy price was kept, but should be verified in-game.')}</b> `:''}${esc(note)} ${tr('Ocena łączy świeżość, płynność, regularność i zgodność ceny z historią; nie jest gwarancją zysku.','The score combines freshness, liquidity, regularity and price-vs-history plausibility; it is not a profit guarantee.')}</span>`;el('detailDialog').showModal();
+}
+function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:parseHistoryTime(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML=`<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">${tr('Brak historii dla tego sygnału.','No history for this signal.')}</text>`;return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">${tr('30 dni','30 days')} • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">${tr('zakup','buy')} ${fmt(current)}</text>`;}
+
+async function loadCachedOpportunities(){
+  let ops=await dbGetAll('opportunities');
+  // v5.4.2 accepts only the current opportunity schema so stale mathematical models cannot reappear.
+  ops=ops.filter(x=>x&&x.schemaVersion===15);
+  if(!ops.length){await dbClear('opportunities');return false;}
+  state.opportunities=ops;
+  state.page=1;
+  el('validateBtn').disabled=false;
+  const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);
+  el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';
+  setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);
+  render();
+  return true;
+}
+async function exportDB(){
+  const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};
+  for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);
+  const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=u;a.download=`albion-local-db-v5_4_2-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+async function importDBFile(file){
+  const txt=await file.text(),j=JSON.parse(txt);
+  if(j?.format!=='albion-market-local-db'||!j.stores)throw new Error(tr('Nieprawidłowy backup','Invalid backup'));
+  for(const s of DB_STORES){await dbClear(s);if(Array.isArray(j.stores[s]))await dbPutMany(s,j.stores[s]);}
+  state.watched=new Set((await dbGetAll('watchlist')).map(x=>x.itemId));
+  setItems(await dbGetAll('items'));
+  await loadSettings();
+  await loadCachedOpportunities();
+  await updateDbInfo();
+}
+async function clearCache(){
+  if(!confirm(tr('Wyczyścić ceny, historię wolumenu i zapisane okazje? Baza przedmiotów i ustawienia zostaną.','Clear prices, volume history and saved opportunities? Item database and settings will remain.')))return;
+  for(const s of ['prices','history','opportunities','scan_runs'])await dbClear(s);
+  state.opportunities=[];state.history.clear();state.volumeFailures.clear();state.volumeStats={jobs:0,errors:0};state.page=1;
+  render();await updateDbInfo();setProgress(0,tr('Lokalny cache cen i wolumenu wyczyszczony.','Local price and volume cache cleared.'));
+}
+function scheduleAuto(){
+  clearInterval(autoTimer);
+  const m=+el('autoRefresh').value||0;
+  if(m>0)autoTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!el('scanBtn').disabled)scan({auto:true}).catch(()=>{});},m*60000);
+}
+function bind(){
+  el('languageSelect').onchange=e=>applyLanguage(e.target.value,true);
+  el('allCategories').onclick=()=>{setSelectedCategories(CATEGORY_LEAVES);queueSaveSettings();};
+  el('clearCategories').onclick=()=>{setSelectedCategories([]);queueSaveSettings();};
+  el('equipmentCategories').onclick=()=>{setSelectedCategories([...EQUIPMENT_CATEGORIES]);queueSaveSettings();};
+  el('bulkMaterialsCategories').onclick=()=>{setSelectedCategories(['bulkMaterials']);queueSaveSettings();};
+  el('smallGoodsCategories').onclick=()=>{setSelectedCategories([...SMALL_GOODS_CATEGORIES]);queueSaveSettings();};
+  el('allMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=true);queueSaveSettings();};
+  el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);queueSaveSettings();};
+  el('scanBtn').onclick=()=>scan();
+  el('stopBtn').onclick=()=>{state.stop=true;state.scanId++;el('stopBtn').disabled=true;el('scanBtn').disabled=false;};
+  el('validateBtn').onclick=()=>enrichAllVolume(true);
+  el('resultSearch').oninput=()=>{state.page=1;render();};
+  el('sortBy').onchange=()=>{state.page=1;render();};
+  ['maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty'].forEach(id=>{const x=el(id);if(!x)return;x.oninput=()=>{state.page=1;render();};x.onchange=()=>{state.page=1;render();queueSaveSettings();};});
+  if(el('bulkRunePreset'))el('bulkRunePreset').onclick=applyBulkPreset;
+  if(el('pageSize'))el('pageSize').onchange=()=>{state.page=1;state.pageSize=+el('pageSize').value||100;render();queueSaveSettings();};
+  if(el('prevPage'))el('prevPage').onclick=()=>{state.page=Math.max(1,state.page-1);render();};
+  if(el('nextPage'))el('nextPage').onclick=()=>{state.page++;render();};
+  el('watchOnly').onclick=()=>{state.watchOnly=!state.watchOnly;el('watchOnly').textContent=state.watchOnly?tr('★ Wszystkie wyniki','★ All results'):tr('★ Obserwowane','★ Watched');render();};
+  el('exportBtn').onclick=exportCsv;
+  el('closeDialog').onclick=()=>el('detailDialog').close();
+  el('dbExportBtn').onclick=exportDB;
+  el('dbImportBtn').onclick=()=>el('dbImportFile').click();
+  el('dbImportFile').onchange=async e=>{try{if(e.target.files[0])await importDBFile(e.target.files[0]);setProgress(100,tr('Backup local.db zaimportowany.','local.db backup imported.'));}catch(err){alert(tr('Import nieudany: ','Import failed: ')+err.message);}e.target.value='';};
+  el('loadCacheBtn').onclick=()=>loadCachedOpportunities();
+  el('dbClearBtn').onclick=clearCache;
+  document.querySelectorAll('thead th[data-sort]').forEach(th=>th.onclick=()=>{const key=th.dataset.sort;if(['bulkProfit','profitVolume','profit','volume','buy','sell','reality'].includes(key)){el('sortBy').value=key;state.page=1;render();}});
+  document.querySelectorAll('input,select').forEach(x=>{if(!['resultSearch','dbImportFile'].includes(x.id))x.addEventListener('change',queueSaveSettings);});
+  document.addEventListener('change',e=>{
+    if(e.target.classList?.contains('marketCheck'))queueSaveSettings();
+    if(e.target.classList?.contains('categoryGroupCheck')){const g=e.target.dataset.group;document.querySelectorAll(`.categoryLeafCheck[data-group="${g}"]`).forEach(x=>x.checked=e.target.checked);updateCategoryParents();updateCategorySummary();queueSaveSettings();}
+    if(e.target.classList?.contains('categoryLeafCheck')){updateCategoryParents();updateCategorySummary();queueSaveSettings();}
+  });
+  window.addEventListener('online',()=>pingApi());
+  window.addEventListener('offline',()=>{el('apiStatus').textContent='offline';el('apiStatus').style.color='var(--bad)';});
+}
+async function init(){
+  try{
+    renderMarkets();renderCategories(CATEGORY_LEAVES);bind();
+    await openLocalDB();setDbStatus(tr('gotowa','ready'));
+    const w=await dbGetAll('watchlist');state.watched=new Set(w.map(x=>x.itemId));
+    await loadSettings();await updateDbInfo();
+    setProgress(3,tr('Ładowanie bazy przedmiotów…','Loading item database…'));
+    await loadItems();await loadCachedOpportunities();
+    setProgress(0,state.opportunities.length?tr('Gotowy — pokazano ostatni cache.','Ready — showing latest cache.'):tr('Gotowy — łączenie z API…','Ready — connecting to API…'));
+    await pingApi();scheduleAuto();
+    if(el('autoStart').value==='yes'&&navigator.onLine)setTimeout(()=>scan({auto:true}).catch(e=>setProgress(0,tr('Błąd auto-skanu: ','Auto-scan error: ')+(e?.message||e))),700);
+  }catch(e){
+    console.error('Albion scanner init error',e);
+    setDbStatus(tr('błąd','error'),false);
+    if(el('dbStatus'))el('dbStatus').textContent=tr('błąd','error');
+    setProgress(0,tr('Błąd inicjalizacji: ','Initialization error: ')+(e?.message||e));
+  }
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.4.2').catch(()=>{});
+  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
+}
+function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','mode','buy_market','buy_price','sell_market','sell_price','top_quote_profit_unit','market_reality_score','market_reality_grade','data_completeness_pct','buy_ref_7d','sell_ref_7d','buy_price_age_h','sell_price_age_h','historical_profit_unit','source_extreme_low_warning','best_source','best_destination','buy_volume_day','sell_volume_day','trade_volume_day','trade_volume_7d','trade_volume_30d','profit_x_volume_day','planned_units','planned_capital','bulk_tax_total','bulk_setup_total','bulk_transport_total','bulk_effective_profit_unit','estimated_trip_profit'],lines=[cols.join(';'),...a.map(o=>[o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),marketLabel(o.dest),Math.round(o.sell),Math.round(o.profit),o.reality?.score??'',o.reality?.grade??'',o.reality?.dataCompleteness??'',Number.isFinite(o.reality?.buyRef)?Math.round(o.reality.buyRef):'',Number.isFinite(o.reality?.sellRef)?Math.round(o.reality.sellRef):'',Number.isFinite(o.reality?.buyAge)?o.reality.buyAge.toFixed(2):'',Number.isFinite(o.reality?.sellAge)?o.reality.sellAge.toFixed(2):'',Number.isFinite(o.reality?.repeatableProfit)?Math.round(o.reality.repeatableProfit):'',o.priceGuard?.sourceWarning?'yes':'',o.bestSource?'yes':'',o.bestDestination?'yes':'',Number.isFinite(o.volume?.buyDaily)?o.volume.buyDaily.toFixed(2):'',Number.isFinite(o.volume?.sellDaily)?o.volume.sellDaily.toFixed(2):'',Number.isFinite(o.volume?.effectiveDaily)?o.volume.effectiveDaily.toFixed(2):'',Number.isFinite(o.volume?.trade7)?Math.round(o.volume.trade7):'',Number.isFinite(o.volume?.trade30)?Math.round(o.volume.trade30):'',Math.round(o.profitVolumeDaily||0),o.bulk?.qty||0,Math.round(o.bulk?.capital||0),Math.round(o.bulk?.taxTotal||0),Math.round(o.bulk?.setupTotal||0),Math.round(o.bulk?.transportTotal||0),Number.isFinite(o.bulk?.effectiveProfitUnit)?o.bulk.effectiveProfitUnit.toFixed(2):'',Math.round(o.bulk?.totalProfit||0)].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_bulk_trade_v5_4_1.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+init();
+})();
+
+</script>
 </body>
 </html>
