@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>Albion Europe Market Scanner v5.3 — Hurt / Mamut</title>
+<title>Albion Europe Market Scanner v5.3.1 — Full Scan / Hurt</title>
 <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -26,7 +26,7 @@
 <div class="app">
 <div class="topbar">
 <div class="brand">
-<h1>Albion Europe Market Scanner v5.3 — Hurt / Mamut</h1>
+<h1>Albion Europe Market Scanner v5.3.1 — Full Scan / Hurt</h1>
 <p>Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA</p>
 </div>
 <div class="status">
@@ -47,9 +47,9 @@
 </div>
 <div class="row2">
 <div class="field"><label>Jakość</label><select id="quality"><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option><option selected="" value="all">Wszystkie</option></select></div>
-<div class="field"><label>Limit przedmiotów</label><input id="scanLimit" max="2500" min="10" step="10" type="number" value="500"/></div>
+<div class="field"><label>Limit przedmiotów (0 = wszystkie)</label><input id="scanLimit" min="0" step="100" type="number" value="0"/></div>
 </div>
-<div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Limit jest łączny dla wszystkich zaznaczonych kategorii; v5.3 dobiera go równomiernie między kategoriami i tierami zamiast preferować głównie drogie T8/enchant.</div>
+<div class="tiny">Domyślnie skanowane są wszystkie pasujące handlowalne T4–T8. Wartość 0 oznacza brak limitu. Zapytania są automatycznie dzielone na partie zgodne z limitem długości URL AODP; szeroki skan może potrwać kilka minut.</div>
 </div>
 <div class="section">
 <h3>Kategorie przedmiotów</h3>
@@ -124,7 +124,7 @@
 <input accept="application/json,.json" hidden="" id="dbImportFile" type="file"/>
 <div class="tiny" id="localDbInfo" style="margin-top:8px">IndexedDB zapisuje ostatnie ceny, historię, obserwowane przedmioty i ustawienia lokalnie w tej przeglądarce. Dane nie są wysyłane do GitHub.</div>
 </div>
-<button class="btn primary" id="scanBtn" style="width:100%">Skanuj ceny i wolumen</button>
+<button class="btn primary" id="scanBtn" style="width:100%">Skanuj pełny zakres cen i wolumenu</button><div class="tiny" style="margin-top:7px">Pełny skan respektuje limity AODP i pokazuje postęp liczby przetworzonych przedmiotów. Nie ogranicza się do 500 pozycji.</div>
 <div class="progress"><div id="progressBar"></div></div>
 <div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div><div class="tiny" id="scanDiagnostics" style="margin-top:7px;padding:8px;border:1px solid #263244;border-radius:8px;background:#0b1119">Diagnostyka skanu: —</div>
 <div class="actions">

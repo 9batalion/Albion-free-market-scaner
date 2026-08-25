@@ -50,7 +50,7 @@ const mean = a => a.length?a.reduce((s,x)=>s+x,0)/a.length:NaN;
 
 const tr = (pl,en) => state.lang==='en'?en:pl;
 const TEXT_PAIRS = {
-  'Market Intelligence • Europe • AODP API • modele okazji • Kategorie • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA':'Market Intelligence • Europe • AODP API • opportunity models • Categories • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA','API:':'API:','niepołączone':'not connected','Przedmioty:':'Items:','Ostatni skan:':'Last scan:','Zakres skanowania':'Scan scope','Wyszukaj przedmiot / ID':'Search item / ID','Wszystkie':'All','Jakość':'Quality','Limit przedmiotów':'Item limit',
+  'Market Intelligence • Europe • AODP API • modele okazji • Kategorie • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA':'Market Intelligence • Europe • AODP API • opportunity models • Categories • PL/EN • Portfolio Optimizer • Confidence Score • IndexedDB • GitHub Pages / PWA','API:':'API:','niepołączone':'not connected','Przedmioty:':'Items:','Ostatni skan:':'Last scan:','Zakres skanowania':'Scan scope','Wyszukaj przedmiot / ID':'Search item / ID','Wszystkie':'All','Jakość':'Quality','Limit przedmiotów':'Item limit','Limit przedmiotów (0 = wszystkie)':'Item limit (0 = all)',
   'Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Duży limit = więcej zapytań i dłuższy skan.':'With an empty search, the scanner selects tradeable T4–T8 items. A higher limit means more requests and a longer scan.',
   'Kategorie przedmiotów':'Item categories','Wszystkie kategorie':'All categories','Wyczyść':'Clear','Tylko ekwipunek':'Equipment only',
   'Kategorie są stosowane przed zapytaniem do API. Możesz zaznaczyć kilka grup jednocześnie, np. Zbroje + Broń.':'Categories are applied before API requests. You can select multiple groups, e.g. Armor + Weapons.',
@@ -100,7 +100,7 @@ Object.assign(TEXT_PAIRS,{
   'Cena i wolumen są jedynymi kryteriami filtrowania wyników. Błąd API wolumenu nie jest zapisywany jako zero; przy awarii zobaczysz błąd API albo oznaczenie cache.':'Price and volume are the only result filters. A volume API failure is never cached as zero; on failure you will see an API error or a cache marker.',
   'Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA':'Europe • AODP API • bulk trading • price + volume • city-to-city transport • PL/EN • IndexedDB • GitHub Pages / PWA',
   'Plan ilości jest prostą estymacją: cena + historyczny wolumen. Nie zakłada, że cała liczba sztuk jest dostępna dokładnie po najniższej cenie z API.':'Quantity planning is a simple estimate based on price + historical volume. It does not assume the full quantity is available exactly at the API minimum price.',
-  'Plan sztuk = minimum z limitu budżetu, wybranego udziału wolumenu i maksymalnej liczby sztuk. Dla mamuta jest to lista kandydatów do sprawdzenia w grze przed zakupem.':'Planned units = the minimum of budget cap, selected share of volume, and max units. For a mammoth run, treat it as a shortlist to verify in-game before buying.',
+  'Plan sztuk = minimum z limitu budżetu, wybranego udziału wolumenu i maksymalnej liczby sztuk. Dla mamuta jest to lista kandydatów do sprawdzenia w grze przed zakupem.':'Planned units = the minimum of budget cap, selected share of volume, and max units. For a mammoth run, treat it as a shortlist to verify in-game before buying.','Skanuj pełny zakres cen i wolumenu':'Scan full price and volume range','Pełny skan respektuje limity AODP i pokazuje postęp liczby przetworzonych przedmiotów. Nie ogranicza się do 500 pozycji.':'Full scan respects AODP limits and shows item processing progress. It is not limited to 500 items.','Domyślnie skanowane są wszystkie pasujące handlowalne T4–T8. Wartość 0 oznacza brak limitu. Zapytania są automatycznie dzielone na partie zgodne z limitem długości URL AODP; szeroki skan może potrwać kilka minut.':'By default all matching tradeable T4–T8 items are scanned. 0 means no item limit. Requests are automatically split to fit the AODP URL limit; a broad scan may take several minutes.',
   'Filtry pozostają proste: maksymalna cena zakupu, minimalny zysk na sztuce i minimalny wolumen. Plan hurtowy służy do oszacowania liczby sztuk i łącznego zysku transportu.':'Filters stay simple: maximum buy price, minimum profit per unit, and minimum volume. The bulk plan estimates units and total trip profit.',
   'Albion Europe Market Scanner v5.3 — Hurt / Mamut':'Albion Europe Market Scanner v5.3 — Bulk Trade',
   'Runy / dusze / relikty':'Runes / souls / relics','Drobne towary':'Small goods','Runy, dusze, relikty i esencje':'Runes, souls, relics & essences',
@@ -219,14 +219,14 @@ async function saveWatch(){await dbClear('watchlist');await dbPutMany('watchlist
 function currentSettings(){
   const ids=['languageSelect','itemQuery','tier','enchant','quality','scanLimit','mode','premium','setupFee','undercut','transport','maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty','excludeSame','autoRefresh','autoStart','useCache','pageSize'];
   const v={};for(const id of ids){const x=el(id);if(x)v[id]=x.type==='checkbox'?x.checked:x.value;}
-  v.markets=selectedMarkets();v.categories=selectedCategories();v._uiSchema=6;return v;
+  v.markets=selectedMarkets();v.categories=selectedCategories();v._uiSchema=7;return v;
 }
 async function saveSettings(){if(!db)return;await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
 async function loadSettings(){
   const rec=await dbGet('settings','ui');if(!rec?.value)return;
   const v={...rec.value};
   // v5.3: price + volume remain the core; bulk plan estimates route quantity.
-  if((+v._uiSchema||1)<6){Object.assign(v,{maxBuyPrice:v.maxBuyPrice||'0',minProfit:v.minProfit||'0',minVolumeDay:v.minVolumeDay||'0',bulkBudget:v.bulkBudget||'5000000',bulkVolumeShare:v.bulkVolumeShare||'20',bulkDays:v.bulkDays||'1',bulkMaxQty:v.bulkMaxQty||'10000',quality:v.quality||'all',pageSize:v.pageSize||'100',_uiSchema:6});}
+  if((+v._uiSchema||1)<7){Object.assign(v,{maxBuyPrice:v.maxBuyPrice||'0',minProfit:v.minProfit||'0',minVolumeDay:'0',bulkBudget:v.bulkBudget||'5000000',bulkVolumeShare:v.bulkVolumeShare||'20',bulkDays:v.bulkDays||'1',bulkMaxQty:v.bulkMaxQty||'10000',quality:v.quality||'all',pageSize:v.pageSize||'100',scanLimit:'0',_uiSchema:7});}
   for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets'||id==='categories'||id==='_uiSchema')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
   if(Array.isArray(v.markets)){const set=new Set(v.markets);document.querySelectorAll('.marketCheck').forEach(x=>x.checked=set.has(x.value));}
   if(Array.isArray(v.categories))setSelectedCategories(v.categories);
@@ -239,6 +239,12 @@ function selectedMarkets(){return [...document.querySelectorAll('.marketCheck:ch
 function normalizeItem(x){const id=x.UniqueName||x.uniqueName||x.unique_name||x.item_id||x.id;if(!id)return null;const names=x.LocalizedNames||x.localizedNames||x.localized_names||{};const namePl=names['PL-PL']||names['pl-PL']||null,nameEn=names['EN-US']||names['en-US']||x.LocalizedName||x.name||null,name=namePl||nameEn||id;return{id:String(id),name:String(name),namePl:String(namePl||nameEn||id),nameEn:String(nameEn||namePl||id),index:x.Index??x.index??null};}
 function isLikelyTradeable(id){if(!/^T[2-8]_/.test(id))return false;const bad=['QUESTITEM','UNIQUE','TOKEN','SKILLBOOK','JOURNAL_EMPTY','FURNITURE_','MOBDROP_','TREASURE_','FACTION_','CRYSTAL_','DEBUG','NONTRADABLE'];return !bad.some(k=>id.includes(k));}
 async function fetchJson(url,timeout=18000){const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{cache:'no-store',signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}finally{clearTimeout(t);}}
+const API_REQUEST_GAP_MS=1100;
+let lastApiRequestAt=0;
+async function apiPace(){const wait=Math.max(0,API_REQUEST_GAP_MS-(Date.now()-lastApiRequestAt));if(wait)await sleep(wait);lastApiRequestAt=Date.now();}
+async function fetchJsonRetry(url,timeout=18000,retries=2){let last;for(let attempt=0;attempt<=retries;attempt++){try{await apiPace();return await fetchJson(url,timeout);}catch(e){last=e;if(attempt>=retries)break;const is429=/HTTP 429/.test(String(e?.message||e));await sleep(is429?6500:1800*(attempt+1));}}throw last;}
+function priceUrlFor(batch,markets,qualities){const ids=batch.map(x=>x.id||x).join(',');return `${API}/api/v2/stats/prices/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?locations=${encodeURIComponent(markets.join(','))}&qualities=${qualities.join(',')}`;}
+async function fetchPriceBatchRobust(batch,markets,qualities,depth=0){const url=priceUrlFor(batch,markets,qualities);const j=await fetchJsonRetry(url,22000,2);if(Array.isArray(j)&&j.length)return j;if(!Array.isArray(j))throw new Error('Unexpected AODP price response');if(batch.length<=1||depth>=3)return [];const mid=Math.ceil(batch.length/2),left=batch.slice(0,mid),right=batch.slice(mid);const a=await fetchPriceBatchRobust(left,markets,qualities,depth+1),b=await fetchPriceBatchRobust(right,markets,qualities,depth+1);return a.concat(b);}
 async function loadItems(){
   let lastErr=null;const meta=await dbGet('settings','items_meta'),cached=await dbGetAll('items');
   if(cached.length&&cached.some(x=>x.nameEn)&&meta?.fetchedAt&&now()-meta.fetchedAt<7*864e5){setItems(cached);el('dbStatus').textContent=fmt(cached.length);return;}
@@ -263,9 +269,11 @@ function balancedItemTake(items,limit){
   return out;
 }
 function buildItemSelection(){
-  const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,limit=clamp(+el('scanLimit').value||500,10,2500),cats=new Set(selectedCategories());if(!cats.size)return[];
+  const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,rawLimit=Number(el('scanLimit').value),limit=Number.isFinite(rawLimit)&&rawLimit>0?Math.floor(rawLimit):0,cats=new Set(selectedCategories());if(!cats.size)return[];
   let a=state.items.filter(it=>{const id=it.id,{tier:t,enchant:e}=itemTierEnchant(id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(id)))return false;const names=[it.name,it.namePl,it.nameEn,id].filter(Boolean).map(x=>String(x).toLowerCase());if(q&&!names.some(x=>x.includes(q)))return false;return true;});
-  if(q){a.sort((x,y)=>liquidItemPriority(y.id)-liquidItemPriority(x.id)||x.id.localeCompare(y.id));return a.slice(0,limit);}
+  a.sort((x,y)=>liquidItemPriority(y.id)-liquidItemPriority(x.id)||x.id.localeCompare(y.id));
+  if(!limit||limit>=a.length)return a; // 0 = wszystkie pasujące przedmioty
+  if(q)return a.slice(0,limit);
   return balancedItemTake(a,limit);
 }
 function batchesByUrl(items,locations,qualities){const out=[];let batch=[];const fixed=`${API}/api/v2/stats/prices/.json?locations=${encodeURIComponent(locations.join(','))}&qualities=${encodeURIComponent(qualities.join(','))}`;for(const it of items){const test=[...batch,it.id],len=fixed.length+encodeURIComponent(test.join(',')).length;if(len>3400&&batch.length){out.push(batch);batch=[it];}else batch=test;}if(batch.length)out.push(batch);return out;}
@@ -368,7 +376,7 @@ async function loadVolumeHistoriesForOpportunities(ops,qualities,force=false){
     if(state.stop)return;
     const ids=job.batch.join(','),url=`${API}/api/v2/stats/history/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?date=${startS}&end_date=${endS}&locations=${encodeURIComponent(job.city)}&qualities=${qualities.join(',')}&time-scale=24`;
     let rows=null;
-    try{const j=await fetchJson(url,25000);if(!Array.isArray(j))throw new Error('Unexpected AODP history response');rows=j;}
+    try{const j=await fetchJsonRetry(url,30000,2);if(!Array.isArray(j))throw new Error('Unexpected AODP history response');rows=j;}
     catch{errors++;for(const id of job.batch)for(const q of qualities)failedKeys.add(volumeHistoryKey(id,job.city,q));}
     if(rows!==null){
       const returned=new Map();
@@ -380,8 +388,8 @@ async function loadVolumeHistoriesForOpportunities(ops,qualities,force=false){
     }
     completed++;setProgress(76+(completed/Math.max(1,jobs.length))*22,state.lang==='en'?`Volume ${completed}/${jobs.length} • ${errors} API errors`:`Wolumen ${completed}/${jobs.length} • błędy API: ${errors}`);
   };
-  const worker=async(workerNo)=>{if(workerNo)await sleep(350*workerNo);while(!state.stop){const i=next++;if(i>=jobs.length)break;await processJob(jobs[i],i);if(next<jobs.length)await sleep(700);}};
-  await Promise.all(Array.from({length:Math.min(2,jobs.length)},(_,i)=>worker(i)));
+  const worker=async()=>{while(!state.stop){const i=next++;if(i>=jobs.length)break;await processJob(jobs[i],i);}};
+  await Promise.all(Array.from({length:Math.min(1,jobs.length)},()=>worker()));
   return {cache,failedKeys,jobs:jobs.length,errors};
 }
 function volumeRecordState(rec,failed){
@@ -429,9 +437,9 @@ async function scan(opts={}){
   if(el('scanBtn').disabled&&!opts.auto)return;const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert(tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
   const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;
   const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,state.lang==='en'?`${opts.auto?'Auto-scan':'Start'}: ${fmt(items.length)} items…`:`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów…`);
-  const fresh=[];let errors=0;
-  for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const ids=batches[i].map(x=>x.id).join(','),url=`${API}/api/v2/stats/prices/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?locations=${encodeURIComponent(markets.join(','))}&qualities=${qualities.join(',')}`;try{const j=await fetchJson(url,18000);if(Array.isArray(j))fresh.push(...j);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}setProgress((i+1)/batches.length*70,state.lang==='en'?`Prices ${i+1}/${batches.length} • rows ${fmt(fresh.length)}`:`Ceny ${i+1}/${batches.length} • rekordy ${fmt(fresh.length)}`);if(i<batches.length-1)await sleep(180);}
-  const normalizedFresh=fresh.length?await persistPriceRows(fresh):[];state.scanDiagnostics.apiRows=normalizedFresh.length;
+  const normalizedFresh=[];let errors=0,processedItems=0,rawApiRows=0;
+  for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const batch=batches[i];try{const j=await fetchPriceBatchRobust(batch,markets,qualities);rawApiRows+=Array.isArray(j)?j.length:0;const meaningful=(Array.isArray(j)?j:[]).filter(r=>(+r.sell_price_min||0)>0||(+r.buy_price_max||0)>0||(+r.sell_price_max||0)>0||(+r.buy_price_min||0)>0);if(meaningful.length){const saved=await persistPriceRows(meaningful);normalizedFresh.push(...saved);}state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}processedItems+=batch.length;state.scanDiagnostics.apiRows=normalizedFresh.length;setProgress((i+1)/batches.length*70,state.lang==='en'?`Prices: ${fmt(processedItems)} / ${fmt(items.length)} items • batch ${i+1}/${batches.length} • useful rows ${fmt(normalizedFresh.length)}`:`Ceny: ${fmt(processedItems)} / ${fmt(items.length)} przedmiotów • partia ${i+1}/${batches.length} • użyteczne rekordy ${fmt(normalizedFresh.length)}`);}
+  state.scanDiagnostics.apiRows=normalizedFresh.length;state.scanDiagnostics.rawApiRows=rawApiRows;
   let cached=[];if(el('useCache').checked&&(errors||!normalizedFresh.length))cached=await cachedRowsFor(items,markets,qualities);const rows=mergeRows(normalizedFresh,cached);state.raw=rows;
   if(!rows.length){el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,tr('Brak danych API i brak lokalnego cache.','No API data and no local cache.'));await updateDbInfo();return;}
   const map=new Map(items.map(x=>[x.id,x])),byItem=new Map();for(const r of rows){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}
@@ -452,8 +460,8 @@ function bulkPlanFor(o,cfg){
 function applyBulkPlan(o,cfg){o.bulk=bulkPlanFor(o,cfg);return o;}
 function applyBulkPreset(){
   setSelectedCategories(['bulkMaterials']);
-  el('itemQuery').value='';el('tier').value='all';el('enchant').value='0';el('quality').value='1';el('mode').value='relist';el('scanLimit').value='500';
-  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='1';el('sortBy').value='bulkProfit';state.page=1;queueSaveSettings();render();
+  el('itemQuery').value='';el('tier').value='all';el('enchant').value='0';el('quality').value='1';el('mode').value='relist';el('scanLimit').value='0';
+  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';el('sortBy').value='bulkProfit';state.page=1;queueSaveSettings();render();
   setProgress(0,tr('Preset hurtowy gotowy — uruchom skan.','Bulk preset ready — run the scan.'));
 }
 
