@@ -1,341 +1,177 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Albion Europe Market Scanner v2.1 — All Product Icons</title>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<title>Albion Europe Market Scanner v5.3.1 — Full Scan / Hurt</title>
+<style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
       --accent:#d6a84b;--good:#49d17d;--bad:#ff6b6b;--warn:#ffc857;--info:#64b5f6;--shadow:0 14px 40px rgba(0,0,0,.28)
     }
     *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 10% 0,#1a2331 0,#0b0e13 35%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}
-    button,input,select{font:inherit}.app{max-width:1680px;margin:auto;padding:18px}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.brand h1{font-size:24px;margin:0 0 4px}.brand p{margin:0;color:var(--muted);font-size:13px}.status{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.pill{border:1px solid var(--line);background:#0e141e;border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}.pill b{color:var(--text)}
+    button,input,select{font:inherit}.app{max-width:1680px;margin:auto;padding:18px}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.brand h1{font-size:24px;margin:0 0 4px}.brand p{margin:0;color:var(--muted);font-size:13px}.status{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.pill{border:1px solid var(--line);background:#0e141e;border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}.pill b{color:var(--text)}.status select{background:#0e141e;color:var(--text);border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;outline:none}
     .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}.panel{background:linear-gradient(180deg,rgba(23,31,44,.96),rgba(14,19,28,.96));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.controls{padding:14px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}.section{border-bottom:1px solid var(--line);padding:10px 0 14px}.section:last-child{border-bottom:0}.section h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#c7d2df;margin:0 0 10px}.field{margin:8px 0}.field label{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;margin-bottom:5px}.field input,.field select{width:100%;background:#0b111a;color:var(--text);border:1px solid #2d3b50;border-radius:9px;padding:9px 10px;outline:none}.field input:focus,.field select:focus{border-color:var(--accent)}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}.check{display:flex;align-items:center;gap:7px;background:#0d131c;border:1px solid #222f40;border-radius:8px;padding:7px 8px;font-size:12px;color:#ced8e4}.check input{accent-color:var(--accent)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.btn{border:1px solid #35465e;border-radius:9px;background:#182334;color:white;padding:10px 12px;cursor:pointer}.btn:hover{filter:brightness(1.12)}.btn.primary{background:linear-gradient(180deg,#dfb85f,#b9892d);border-color:#e1bd6b;color:#15110a;font-weight:800}.btn.danger{background:#32181b;border-color:#603036}.btn:disabled{opacity:.5;cursor:not-allowed}.tiny{font-size:11px;color:var(--muted);line-height:1.45}.progress{height:7px;background:#0b1118;border-radius:99px;overflow:hidden;border:1px solid #243044;margin-top:9px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,#b4852f,#f2d083);transition:width .2s}
-    .main{min-width:0}.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}.kpi{padding:13px}.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi strong{display:block;font-size:21px;margin-top:5px}.kpi small{display:block;color:var(--muted);margin-top:2px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px}.toolbar input,.toolbar select{background:#0b111a;border:1px solid #2b394d;color:white;border-radius:8px;padding:8px 9px}.toolbar .grow{flex:1;min-width:220px}.table-wrap{overflow:auto;max-height:calc(100vh - 215px);border-top:1px solid var(--line)}table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:1180px}thead th{position:sticky;top:0;z-index:3;background:#121a26;color:#aebbd0;text-align:left;padding:9px 8px;border-bottom:1px solid #334259;white-space:nowrap;cursor:pointer}tbody td{padding:8px;border-bottom:1px solid #1e2938;vertical-align:middle}tbody tr:hover{background:#151e2a}.itemcell{display:flex;align-items:center;gap:8px;min-width:270px}.itemcell img,.product-icon{width:42px;height:42px;flex:0 0 42px;object-fit:contain;background:#0b1118;border-radius:7px;border:1px solid #253246}.product-icon.icon-missing{position:relative;background:linear-gradient(135deg,#151d29,#0b1118)}.product-icon.icon-missing::after{content:'?';color:#6f8198;font-weight:800;font-size:18px}.itemname{font-weight:700}.itemid{color:var(--muted);font-size:10px;max-width:230px;overflow:hidden;text-overflow:ellipsis}.profit{color:var(--good);font-weight:800}.loss{color:var(--bad)}.route{white-space:nowrap}.route b{color:#f2d083}.muted{color:var(--muted)}.fresh{color:var(--good)}.stale{color:var(--warn)}.old{color:var(--bad)}.tag{display:inline-block;padding:3px 6px;border-radius:999px;border:1px solid #38475c;font-size:10px;color:#c7d2df;background:#111923;margin:1px}.tag.good{border-color:#265c3d;color:#78e3a0;background:#102018}.tag.warn{border-color:#66521d;color:#ffd36d;background:#241e0d}.tag.bad{border-color:#6c2b2b;color:#ff9292;background:#241112}.star{background:none;border:0;color:#78889d;font-size:19px;cursor:pointer;padding:0}.star.on{color:#ffd260}.empty{padding:46px 20px;text-align:center;color:var(--muted)}
-    dialog{width:min(920px,94vw);border:1px solid #3a4a61;border-radius:14px;background:#101722;color:var(--text);padding:0;box-shadow:0 30px 100px rgba(0,0,0,.65)}dialog::backdrop{background:rgba(0,0,0,.72)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line)}.modal-body{padding:14px}.close{background:#202c3d;border:1px solid #40506a;color:white;border-radius:7px;padding:6px 10px;cursor:pointer}.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.detail-card{padding:10px;background:#0b1119;border:1px solid #28364a;border-radius:9px}.detail-card small{color:var(--muted)}.detail-card b{display:block;font-size:16px;margin-top:4px}.chart{width:100%;height:220px;border:1px solid #29384c;border-radius:10px;background:#0a0f17}.note{border-left:3px solid var(--accent);background:#171a18;padding:10px 12px;border-radius:6px;color:#cbd5e1;font-size:12px;line-height:1.5}.spinner{display:inline-block;width:11px;height:11px;border:2px solid #52647b;border-top-color:#f0c96d;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:5px}@keyframes spin{to{transform:rotate(360deg)}}
-    @media(max-width:1050px){.grid{grid-template-columns:1fr}.controls{position:static;max-height:none}.kpis{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:none}}@media(max-width:650px){.app{padding:10px}.topbar{flex-direction:column}.status{justify-content:flex-start}.kpis{grid-template-columns:1fr 1fr}.checks{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr 1fr}}
-  </style>
-  <meta name="theme-color" content="#0b0e13" />
-  <link rel="manifest" href="./manifest.webmanifest" />
-  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    .main{min-width:0}.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}.kpi{padding:13px}.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi strong{display:block;font-size:21px;margin-top:5px}.kpi small{display:block;color:var(--muted);margin-top:2px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px}.result-filters{padding:12px;border-bottom:1px solid var(--line);background:#0e151f}.result-filter-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.result-filter-head b{font-size:13px}.result-filter-head span{font-size:11px;color:var(--muted)}.result-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px}.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}.preset-row .btn{padding:7px 9px;font-size:11px}.preset-row .btn.active{border-color:#e1bd6b;color:#f5d57e;background:#2b2416}.result-filters .check{margin-top:8px}.filter-note{font-size:10px;color:var(--muted);line-height:1.4;margin-top:8px}.toolbar input,.toolbar select{background:#0b111a;border:1px solid #2b394d;color:white;border-radius:8px;padding:8px 9px}.toolbar .grow{flex:1;min-width:220px}.pager{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-top:1px solid var(--line);background:#0d141e;flex-wrap:wrap}.pager .page-actions{display:flex;gap:6px;align-items:center}.pager select{background:#0b111a;border:1px solid #2b394d;color:white;border-radius:8px;padding:7px 8px}.pager .tiny{margin:0}.table-wrap{overflow:auto;max-height:calc(100vh - 215px);border-top:1px solid var(--line)}table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:1450px}thead th{position:sticky;top:0;z-index:3;background:#121a26;color:#aebbd0;text-align:left;padding:9px 8px;border-bottom:1px solid #334259;white-space:nowrap;cursor:pointer}tbody td{padding:8px;border-bottom:1px solid #1e2938;vertical-align:middle}tbody tr:hover{background:#151e2a}.itemcell{display:flex;align-items:center;gap:8px;min-width:270px}.itemcell img{width:38px;height:38px;object-fit:contain;background:#0b1118;border-radius:7px;border:1px solid #253246}.itemname{font-weight:700}.itemid{color:var(--muted);font-size:10px;max-width:230px;overflow:hidden;text-overflow:ellipsis}.profit{color:var(--good);font-weight:800}.loss{color:var(--bad)}.route{white-space:nowrap}.route b{color:#f2d083}.muted{color:var(--muted)}.fresh{color:var(--good)}.stale{color:var(--warn)}.old{color:var(--bad)}.tag{display:inline-block;padding:3px 6px;border-radius:999px;border:1px solid #38475c;font-size:10px;color:#c7d2df;background:#111923;margin:1px}.tag.good{border-color:#265c3d;color:#78e3a0;background:#102018}.tag.warn{border-color:#66521d;color:#ffd36d;background:#241e0d}.tag.bad{border-color:#6c2b2b;color:#ff9292;background:#241112}.tag.info{border-color:#285071;color:#8fd0ff;background:#0d1d2a}.star{background:none;border:0;color:#78889d;font-size:19px;cursor:pointer;padding:0}.star.on{color:#ffd260}.empty{padding:46px 20px;text-align:center;color:var(--muted)}
+    dialog{width:min(920px,94vw);border:1px solid #3a4a61;border-radius:14px;background:#101722;color:var(--text);padding:0;box-shadow:0 30px 100px rgba(0,0,0,.65)}dialog::backdrop{background:rgba(0,0,0,.72)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line)}.modal-body{padding:14px}.close{background:#202c3d;border:1px solid #40506a;color:white;border-radius:7px;padding:6px 10px;cursor:pointer}.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.detail-card{padding:10px;background:#0b1119;border:1px solid #28364a;border-radius:9px}.detail-card small{color:var(--muted)}.detail-card b{display:block;font-size:16px;margin-top:4px}.chart{width:100%;height:220px;border:1px solid #29384c;border-radius:10px;background:#0a0f17}.note{border-left:3px solid var(--accent);background:#171a18;padding:10px 12px;border-radius:6px;color:#cbd5e1;font-size:12px;line-height:1.5}.category-picker{border:1px solid #29384c;border-radius:10px;background:#0c121b;overflow:hidden}.category-picker summary{cursor:pointer;padding:9px 10px;font-size:12px;font-weight:700;color:#d6dfeb;display:flex;justify-content:space-between;gap:8px;align-items:center}.category-tools{padding:0 9px 8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.category-tools .btn{padding:7px 6px;font-size:11px}.category-groups{padding:0 9px 9px;display:grid;gap:7px}.category-group{border:1px solid #223044;border-radius:8px;overflow:hidden}.category-parent{display:flex;align-items:center;gap:7px;padding:7px 8px;background:#111a26;font-size:12px;font-weight:700}.category-children{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:7px}.category-leaf{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 6px;border-radius:6px;background:#0b1119;color:#cbd5e1;font-size:11px}.category-leaf span:first-of-type{flex:1}.cat-count{color:#708198;font-size:10px}.category-picker input{accent-color:var(--accent)}.spinner{display:inline-block;width:11px;height:11px;border:2px solid #52647b;border-top-color:#f0c96d;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:5px}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:1050px){.result-filter-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.grid{grid-template-columns:1fr}.controls{position:static;max-height:none}.kpis{grid-template-columns:repeat(2,1fr)}.table-wrap{max-height:none}}@media(max-width:650px){.result-filter-grid{grid-template-columns:1fr 1fr}.category-children{grid-template-columns:1fr}.app{padding:10px}.topbar{flex-direction:column}.status{justify-content:flex-start}.kpis{grid-template-columns:1fr 1fr}.checks{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr 1fr}.breakdown{grid-template-columns:1fr 1fr}}
+  .result-filter-grid.simple-two{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:700px){.result-filter-grid.simple-two{grid-template-columns:1fr}}
+</style>
+<meta content="#0b0e13" name="theme-color"/>
+<link href="./manifest.webmanifest" rel="manifest"/>
+<link href="./icon.svg" rel="icon" type="image/svg+xml"/>
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <div class="brand">
-      <h1>Albion Europe Market Scanner v2.1</h1>
-      <p>Arbitraż między marketami • Europe • AODP API • lokalna baza IndexedDB • GitHub Pages / PWA</p>
-    </div>
-    <div class="status">
-      <span class="pill">API: <b id="apiStatus">niepołączone</b></span>
-      <span class="pill">Przedmioty: <b id="dbStatus">0</b></span><span class="pill">local.db: <b id="localDbStatus">start…</b></span>
-      <span class="pill">Ostatni skan: <b id="lastScan">—</b></span>
-    </div>
-  </div>
+<div class="topbar">
+<div class="brand">
+<h1>Albion Europe Market Scanner v5.3.1 — Full Scan / Hurt</h1>
+<p>Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA</p>
+</div>
+<div class="status">
+<select aria-label="Język / Language" id="languageSelect"><option selected="" value="pl">Polski</option><option value="en">English</option></select>
+<span class="pill">API: <b id="apiStatus">niepołączone</b></span>
+<span class="pill">Przedmioty: <b id="dbStatus">0</b></span><span class="pill">local.db: <b id="localDbStatus">start…</b></span>
+<span class="pill">Ostatni skan: <b id="lastScan">—</b></span>
+</div>
+</div>
+<div class="grid">
+<aside class="panel controls">
+<div class="section">
+<h3>Zakres skanowania</h3>
+<div class="field"><label>Wyszukaj przedmiot / ID</label><input id="itemQuery" placeholder="np. Bag, T6_BAG, sword…"/></div>
+<div class="row2">
+<div class="field"><label>Tier</label><select id="tier"><option value="all">Wszystkie</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
+<div class="field"><label>Enchant</label><select id="enchant"><option value="all">Wszystkie</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
+</div>
+<div class="row2">
+<div class="field"><label>Jakość</label><select id="quality"><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option><option selected="" value="all">Wszystkie</option></select></div>
+<div class="field"><label>Limit przedmiotów (0 = wszystkie)</label><input id="scanLimit" min="0" step="100" type="number" value="0"/></div>
+</div>
+<div class="tiny">Domyślnie skanowane są wszystkie pasujące handlowalne T4–T8. Wartość 0 oznacza brak limitu. Zapytania są automatycznie dzielone na partie zgodne z limitem długości URL AODP; szeroki skan może potrwać kilka minut.</div>
+</div>
+<div class="section">
+<h3>Kategorie przedmiotów</h3>
+<details class="category-picker" open="">
+<summary><span id="categorySummary">Wszystkie kategorie</span><span>▾</span></summary>
+<div class="category-tools">
+<button class="btn" id="allCategories">Wszystkie</button>
+<button class="btn" id="clearCategories">Wyczyść</button>
+<button class="btn" id="equipmentCategories">Tylko ekwipunek</button>
+<button class="btn" id="bulkMaterialsCategories">Runy / dusze / relikty</button>
+<button class="btn" id="smallGoodsCategories">Drobne towary</button>
+</div>
+<div class="category-groups" id="categories"></div>
+</details>
+<div class="tiny" id="categoryHint" style="margin-top:7px">Kategorie są stosowane przed zapytaniem do API. Możesz zaznaczyć kilka grup jednocześnie, np. Zbroje + Broń.</div>
+</div>
+<div class="section">
+<h3>Markety</h3>
+<div class="checks" id="markets"></div>
+<div class="actions"><button class="btn" id="allMarkets">Wszystkie</button><button class="btn" id="royalMarkets">Główne miasta</button></div><div class="tiny">Black Market jest traktowany wyłącznie jako cel natychmiastowej sprzedaży do buy orderu; nie jest używany jako źródło zakupu ani jako zwykły market do relistingu.</div>
+</div>
+<div class="section">
+<h3>Strategia</h3>
+<div class="field"><label>Tryb</label><select id="mode"><option selected="" value="smart">Smart Scan — wszystkie modele</option><option value="instant">Natychmiast: sell → buy order</option><option value="relist">Transport + wystawienie sell orderu</option></select></div>
 
-  <div class="grid">
-    <aside class="panel controls">
-      <div class="section">
-        <h3>Zakres skanowania</h3>
-        <div class="field"><label>Wyszukaj przedmiot / ID</label><input id="itemQuery" placeholder="np. Bag, T6_BAG, sword…"></div>
-        <div class="row2">
-          <div class="field"><label>Tier</label><select id="tier"><option value="all">Wszystkie</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
-          <div class="field"><label>Enchant</label><select id="enchant"><option value="all">Wszystkie</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Jakość</label><select id="quality"><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option><option value="all">Wszystkie</option></select></div>
-          <div class="field"><label>Limit przedmiotów</label><input id="scanLimit" type="number" min="10" max="2500" step="10" value="500"></div>
-        </div>
-        <div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Duży limit = więcej zapytań i dłuższy skan.</div>
-      </div>
-
-      <div class="section">
-        <h3>Markety</h3>
-        <div class="checks" id="markets"></div>
-        <div class="actions"><button class="btn" id="allMarkets">Wszystkie</button><button class="btn" id="royalMarkets">Główne miasta</button></div><div class="tiny">Black Market jest traktowany wyłącznie jako cel natychmiastowej sprzedaży do buy orderu; nie jest używany jako źródło zakupu ani jako zwykły market do relistingu.</div>
-      </div>
-
-      <div class="section">
-        <h3>Strategia</h3>
-        <div class="field"><label>Tryb</label><select id="mode"><option value="instant">Natychmiast: sell → buy order</option><option value="relist">Transport + wystawienie sell orderu</option></select></div>
-        <div class="row2">
-          <div class="field"><label>Premium</label><select id="premium"><option value="yes">Tak (tax 4%)</option><option value="no">Nie (tax 8%)</option></select></div>
-          <div class="field"><label>Setup fee %</label><input id="setupFee" type="number" min="0" max="20" step="0.1" value="2.5"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Undercut %</label><input id="undercut" type="number" min="0" max="20" step="0.1" value="0.1"></div>
-          <div class="field"><label>Koszt transportu / szt.</label><input id="transport" type="number" min="0" step="1" value="0"></div>
-        </div>
-        <div class="tiny">W trybie natychmiastowym sprzedaż do istniejącego buy orderu nie używa setup fee, ale nadal uwzględniamy podatek od sprzedaży (4% Premium / 8% bez Premium). W trybie wystawienia uwzględniamy podatek oraz setup fee.</div>
-      </div>
-
-      <div class="section">
-        <h3>Filtry okazji</h3>
-        <div class="row2">
-          <div class="field"><label>Min. zysk / szt.</label><input id="minProfit" type="number" min="0" step="100" value="1000"></div>
-          <div class="field"><label>Min. ROI %</label><input id="minRoi" type="number" min="0" step="1" value="5"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Maks. wiek ceny (h)</label><input id="maxAge" type="number" min="1" max="720" value="24"></div>
-          <div class="field"><label>Min. cena zakupu</label><input id="minBuy" type="number" min="0" step="100" value="100"></div>
-        </div>
-        <label class="check"><input id="excludeSame" type="checkbox" checked> Wyklucz ten sam market</label>
-        <label class="check"><input id="onlyFreshBoth" type="checkbox" checked> Obie ceny muszą być świeże</label>
-      </div>
-
-
-      <div class="section">
-        <h3>Automatyzacja i local.db</h3>
-        <div class="row2">
-          <div class="field"><label>Automatyczny skan</label><select id="autoRefresh"><option value="0">Wyłączony</option><option value="5">co 5 min</option><option value="10" selected>co 10 min</option><option value="15">co 15 min</option><option value="30">co 30 min</option><option value="60">co 60 min</option></select></div>
-          <div class="field"><label>Start po otwarciu</label><select id="autoStart"><option value="yes" selected>Tak</option><option value="no">Nie</option></select></div>
-        </div>
-        <label class="check"><input id="useCache" type="checkbox" checked> Użyj ostatnich danych local.db przy błędzie API</label>
-        <div class="actions">
-          <button class="btn" id="dbExportBtn">Backup DB</button>
-          <button class="btn" id="dbImportBtn">Import DB</button>
-        </div>
-        <div class="actions">
-          <button class="btn" id="loadCacheBtn">Pokaż cache</button>
-          <button class="btn danger" id="dbClearBtn">Wyczyść cache</button>
-        </div>
-        <input id="dbImportFile" type="file" accept="application/json,.json" hidden>
-        <div class="tiny" id="localDbInfo" style="margin-top:8px">IndexedDB zapisuje ostatnie ceny, historię, obserwowane przedmioty i ustawienia lokalnie w tej przeglądarce. Dane nie są wysyłane do GitHub.</div>
-      </div>
-
-      <button id="scanBtn" class="btn primary" style="width:100%">Skanuj okazje</button>
-      <div class="progress"><div id="progressBar"></div></div>
-      <div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div>
-      <div class="actions">
-        <button class="btn" id="validateBtn" disabled>Historia top 30</button>
-        <button class="btn" id="stopBtn" disabled>Przerwij</button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="kpis">
-        <div class="panel kpi"><span>Okazje</span><strong id="kpiCount">0</strong><small>po filtrach</small></div>
-        <div class="panel kpi"><span>Najlepszy zysk</span><strong id="kpiProfit">0</strong><small>srebra / szt.</small></div>
-        <div class="panel kpi"><span>Najlepszy ROI</span><strong id="kpiRoi">0%</strong><small>po opłatach</small></div>
-        <div class="panel kpi"><span>Przeskanowano</span><strong id="kpiItems">0</strong><small>przedmiotów</small></div>
-        <div class="panel kpi"><span>Średnia świeżość</span><strong id="kpiAge">—</strong><small>starsza z dwóch cen</small></div>
-      </div>
-
-      <section class="panel">
-        <div class="toolbar">
-          <input id="resultSearch" class="grow" placeholder="Filtruj wyniki po nazwie, ID lub mieście…">
-          <select id="sortBy"><option value="score">Sortuj: score</option><option value="profit">Zysk</option><option value="roi">ROI</option><option value="age">Świeżość</option><option value="buy">Cena zakupu</option></select>
-          <button class="btn" id="watchOnly">★ Obserwowane</button>
-          <button class="btn" id="exportBtn">Eksport CSV</button>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr>
-              <th></th><th data-sort="item">Przedmiot</th><th data-sort="route">Trasa</th><th data-sort="buy">Kupno</th><th data-sort="sell">Sprzedaż</th><th data-sort="profit">Zysk netto</th><th data-sort="roi">ROI</th><th>Opłaty</th><th data-sort="age">Wiek</th><th data-sort="score">Score</th><th>Ocena</th><th></th>
-            </tr></thead>
-            <tbody id="resultsBody"></tbody>
-          </table>
-          <div class="empty" id="emptyState">Uruchom skan, aby wyszukać okazje między marketami Europy.</div>
-        </div>
-      </section>
-    </main>
-  </div>
+<div class="row2">
+<div class="field"><label>Premium</label><select id="premium"><option value="yes">Tak (tax 4%)</option><option value="no">Nie (tax 8%)</option></select></div>
+<div class="field"><label>Setup fee %</label><input id="setupFee" max="20" min="0" step="0.1" type="number" value="2.5"/></div>
+</div>
+<div class="row2">
+<div class="field"><label>Undercut %</label><input id="undercut" max="20" min="0" step="0.1" type="number" value="0.1"/></div>
+<div class="field"><label>Koszt transportu / szt.</label><input id="transport" min="0" step="1" type="number" value="0"/></div>
+</div>
+<div class="tiny">W trybie natychmiastowym sprzedaż do istniejącego buy orderu nie używa setup fee, ale nadal uwzględniamy podatek od sprzedaży (4% Premium / 8% bez Premium). W trybie wystawienia uwzględniamy podatek oraz setup fee.</div>
+<div class="tiny" style="margin-top:8px">Wolumen pochodzi z historycznych sell orders AODP. Dla sprzedaży do buy orderu wolumen rynku docelowego jest wskaźnikiem aktywności rynku, a nie głębokością konkretnego buy orderu.</div></div>
+<div class="section">
+<h3>Warunki skanu</h3>
+<label class="check"><input checked="" id="excludeSame" type="checkbox"/> Wyklucz ten sam market</label>
+<div class="tiny" style="margin-top:8px">Skaner pokazuje każdą trasę z dodatnim zyskiem netto. Do filtrowania wyników służą wyłącznie minimalny zysk i minimalny wolumen.</div>
 </div>
 
+<div class="section">
+<h3>Handel hurtowy / Mamut</h3>
+<div class="tiny" style="margin-bottom:9px">Plan ilości jest prostą estymacją: cena + historyczny wolumen. Nie zakłada, że cała liczba sztuk jest dostępna dokładnie po najniższej cenie z API.</div>
+<div class="actions"><button class="btn primary" id="bulkRunePreset">Preset: runy / dusze / relikty</button></div>
+<div class="row2">
+<div class="field"><label>Budżet na jedną trasę (silver)</label><input id="bulkBudget" min="0" step="10000" type="number" value="5000000"/></div>
+<div class="field"><label>Użyj % dziennego wolumenu</label><input id="bulkVolumeShare" min="1" max="100" step="1" type="number" value="20"/></div>
+</div>
+<div class="row2">
+<div class="field"><label>Planowany czas sprzedaży (dni)</label><input id="bulkDays" min="0.25" max="30" step="0.25" type="number" value="1"/></div>
+<div class="field"><label>Maks. sztuk na trasę</label><input id="bulkMaxQty" min="1" step="100" type="number" value="10000"/></div>
+</div>
+<div class="tiny">Plan sztuk = minimum z limitu budżetu, wybranego udziału wolumenu i maksymalnej liczby sztuk. Dla mamuta jest to lista kandydatów do sprawdzenia w grze przed zakupem.</div>
+</div>
+
+<div class="section">
+<h3>Automatyzacja i local.db</h3>
+<div class="row2">
+<div class="field"><label>Automatyczny skan</label><select id="autoRefresh"><option value="0">Wyłączony</option><option value="5">co 5 min</option><option selected="" value="10">co 10 min</option><option value="15">co 15 min</option><option value="30">co 30 min</option><option value="60">co 60 min</option></select></div>
+<div class="field"><label>Start po otwarciu</label><select id="autoStart"><option selected="" value="yes">Tak</option><option value="no">Nie</option></select></div>
+</div>
+<label class="check"><input checked="" id="useCache" type="checkbox"/> Użyj ostatnich danych local.db przy błędzie API</label>
+<div class="actions">
+<button class="btn" id="dbExportBtn">Backup DB</button>
+<button class="btn" id="dbImportBtn">Import DB</button>
+</div>
+<div class="actions">
+<button class="btn" id="loadCacheBtn">Pokaż cache</button>
+<button class="btn danger" id="dbClearBtn">Wyczyść cache</button>
+</div>
+<input accept="application/json,.json" hidden="" id="dbImportFile" type="file"/>
+<div class="tiny" id="localDbInfo" style="margin-top:8px">IndexedDB zapisuje ostatnie ceny, historię, obserwowane przedmioty i ustawienia lokalnie w tej przeglądarce. Dane nie są wysyłane do GitHub.</div>
+</div>
+<button class="btn primary" id="scanBtn" style="width:100%">Skanuj pełny zakres cen i wolumenu</button><div class="tiny" style="margin-top:7px">Pełny skan respektuje limity AODP i pokazuje postęp liczby przetworzonych przedmiotów. Nie ogranicza się do 500 pozycji.</div>
+<div class="progress"><div id="progressBar"></div></div>
+<div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div><div class="tiny" id="scanDiagnostics" style="margin-top:7px;padding:8px;border:1px solid #263244;border-radius:8px;background:#0b1119">Diagnostyka skanu: —</div>
+<div class="actions">
+<button class="btn" disabled="" id="validateBtn">Odśwież wolumen</button>
+<button class="btn" disabled="" id="stopBtn">Przerwij</button>
+</div>
+</aside>
+<main class="main">
+<div class="kpis"><div class="panel kpi"><span>Okazje</span><strong id="kpiCount">0</strong><small>po filtrach cena + wolumen</small></div><div class="panel kpi"><span>Najlepszy zysk</span><strong id="kpiProfit">0</strong><small>silver / szt.</small></div><div class="panel kpi"><span>Największy wolumen</span><strong id="kpiVolume">—</strong><small>est. szt. / dzień</small></div><div class="panel kpi"><span>Najlepszy obrót zysku</span><strong id="kpiTradeProfit">0</strong><small>zysk × wolumen / dzień</small></div><div class="panel kpi"><span>Wybrane do skanu</span><strong id="kpiItems">0</strong><small id="kpiItemsMeta">0 rekordów API</small></div><div class="panel kpi"><span>Rekordy z wolumenem</span><strong id="kpiVolumeRows">0</strong><small>okazji z historią</small></div></div>
+
+<section class="panel">
+<div class="result-filters">
+<div class="result-filter-head"><b>Filtry: tylko cena i wolumen</b><span id="resultCountMeta">—</span></div>
+
+<div class="result-filter-grid">
+<div class="field"><label>Maks. cena zakupu / szt.</label><input id="maxBuyPrice" min="0" step="100" type="number" value="0"/></div>
+<div class="field"><label>Min. zysk netto / szt.</label><input id="minProfit" min="0" step="1" type="number" value="0"/></div>
+<div class="field"><label>Min. wolumen / dzień</label><input id="minVolumeDay" min="0" step="0.1" type="number" value="0"/></div>
+</div>
+<div class="filter-note">Filtry pozostają proste: maksymalna cena zakupu, minimalny zysk na sztuce i minimalny wolumen. Plan hurtowy służy do oszacowania liczby sztuk i łącznego zysku transportu.</div>
+</div>
+<div class="toolbar">
+<input class="grow" id="resultSearch" placeholder="Filtruj wyniki po nazwie, ID lub mieście…"/>
+<select id="sortBy"><option selected="" value="bulkProfit">Sortuj: Zysk transportu</option><option value="profitVolume">Zysk × wolumen</option><option value="profit">Zysk / szt.</option><option value="volume">Wolumen / dzień</option><option value="buy">Najniższa cena zakupu</option><option value="sell">Najwyższa cena sprzedaży</option></select><select id="pageSize" title="Wierszy na stronę"><option value="50">50 / strona</option><option selected="" value="100">100 / strona</option><option value="250">250 / strona</option></select>
+<button class="btn" id="watchOnly">★ Obserwowane</button>
+<button class="btn" id="exportBtn">Eksport CSV</button>
+</div>
+<div class="table-wrap">
+<table style="min-width:1350px">
+<thead><tr><th></th><th>Przedmiot</th><th>Tryb</th><th>Kup w</th><th data-sort="buy">Cena kupna</th><th>Sprzedaj w</th><th data-sort="sell">Cena sprzedaży</th><th data-sort="profit">Zysk / szt.</th><th data-sort="volume">Wolumen / d</th><th>Plan szt.</th><th>Kapitał</th><th data-sort="bulkProfit">Zysk transportu</th><th data-sort="profitVolume">Zysk × wolumen / d</th><th></th></tr></thead>
+<tbody id="resultsBody"></tbody>
+</table>
+<div class="empty" id="emptyState">Uruchom skan, aby wyszukać okazje między marketami Europy.</div>
+</div>
+<div class="pager"><div class="tiny" id="pageInfo">Strona 1 z 1</div><div class="page-actions"><button class="btn" id="prevPage">← Poprzednia</button><button class="btn" id="nextPage">Następna →</button></div></div>
+</section>
+</main>
+</div>
+</div>
 <dialog id="detailDialog">
-  <div class="modal-head"><b id="detailTitle">Szczegóły</b><button class="close" id="closeDialog">Zamknij</button></div>
-  <div class="modal-body">
-    <div class="detail-grid" id="detailCards"></div>
-    <svg id="historyChart" class="chart" viewBox="0 0 880 220" preserveAspectRatio="none"></svg>
-    <div class="note" id="detailNote" style="margin-top:12px"></div>
-  </div>
+<div class="modal-head"><b id="detailTitle">Szczegóły</b><button class="close" id="closeDialog">Zamknij</button></div>
+<div class="modal-body">
+<div class="detail-grid" id="detailCards"></div>
+<svg class="chart" id="historyChart" preserveaspectratio="none" viewbox="0 0 880 220"></svg>
+<div class="note" id="detailNote" style="margin-top:12px"></div>
+</div>
 </dialog>
-
-<script>
-(() => {
-'use strict';
-const API = 'https://europe.albion-online-data.com';
-const ITEMS_URLS = [
-  'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.json',
-  'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
-];
-const MARKETS = [
-  {api:'Bridgewatch', label:'Bridgewatch', royal:true},
-  {api:'Caerleon', label:'Caerleon', royal:true},
-  {api:'Fort Sterling', label:'Fort Sterling', royal:true},
-  {api:'Lymhurst', label:'Lymhurst', royal:true},
-  {api:'Martlock', label:'Martlock', royal:true},
-  {api:'Thetford', label:'Thetford', royal:true},
-  {api:'Brecilien', label:'Brecilien', royal:true},
-  {api:'Arthurs Rest', label:"Arthur's Rest", royal:false},
-  {api:'Merlyns Rest', label:"Merlyn's Rest", royal:false},
-  {api:'Morganas Rest', label:"Morgana's Rest", royal:false},
-  {api:'Black Market', label:'Black Market', royal:false}
-];
-const qualityName = {1:'Normal',2:'Good',3:'Outstanding',4:'Excellent',5:'Masterpiece'};
-const DB_NAME='albion_europe_market_local_db';
-const DB_VERSION=2;
-const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs'];
-let db=null, autoTimer=null, settingsTimer=null;
-const el = id => document.getElementById(id);
-const state = {items:[], filteredItems:[], raw:[], opportunities:[], stop:false, watched:new Set(), history:new Map(), scanId:0, watchOnly:false, lastApiOk:false};
-const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('pl-PL') : '—';
-const pct = n => Number.isFinite(+n) ? (+n).toFixed(1).replace('.',',')+'%' : '—';
-const esc = s => String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-const now = () => Date.now();
-const ageHours = d => { const t=Date.parse(d); return Number.isFinite(t) ? Math.max(0,(now()-t)/36e5) : Infinity; };
-const ageText = h => !Number.isFinite(h)?'brak':h<1?Math.round(h*60)+' min':h<48?h.toFixed(1)+' h':(h/24).toFixed(1)+' d';
-const marketLabel = api => MARKETS.find(m=>m.api===api)?.label || api;
-// Unified Albion item icons for every product (resources, runes, souls, relics, gear, etc.)
-const ITEM_ICON_SIZE=64;
-function itemIconUrl(id,q=1,size=ITEM_ICON_SIZE){
-  return `https://render.albiononline.com/v1/item/${encodeURIComponent(String(id||''))}.png?quality=${Number(q)||1}&size=${size}`;
-}
-const itemIcon=(id,q=1)=>itemIconUrl(id,q);
-function itemIconCandidates(id,q=1){
-  const raw=String(id||'');
-  const base=raw.split('@')[0];
-  const urls=[
-    itemIconUrl(raw,q),
-    itemIconUrl(raw,1),
-    itemIconUrl(base,q),
-    itemIconUrl(base,1)
-  ];
-  return [...new Set(urls)];
-}
-function itemIconFallback(img){
-  if(!img)return;
-  let candidates=[];
-  try{candidates=JSON.parse(img.dataset.iconCandidates||'[]')}catch(_){candidates=[]}
-  const next=(Number(img.dataset.iconTry||0)+1);
-  if(next<candidates.length){
-    img.dataset.iconTry=String(next);
-    img.src=candidates[next];
-    return;
-  }
-  img.onerror=null;
-  img.classList.add('icon-missing');
-  img.removeAttribute('src');
-  img.alt='Brak ikony';
-}
-function itemIconImg(id,q=1,name=''){
-  const urls=itemIconCandidates(id,q);
-  const data=esc(JSON.stringify(urls));
-  return `<img class="product-icon" loading="lazy" decoding="async" src="${esc(urls[0]||'')}" data-icon-candidates="${data}" data-icon-try="0" onerror="itemIconFallback(this)" alt="${esc(name||id||'Produkt')}">`;
-}
-function setProgress(p,text){ el('progressBar').style.width=Math.max(0,Math.min(100,p))+'%'; el('progressText').innerHTML=text; }
-function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
-function dbKeyPrice(r){return `${r.item_id}|${r.city}|${+r.quality||1}`;}
-function setDbStatus(txt,good=true){el('localDbStatus').textContent=txt;el('localDbStatus').style.color=good?'var(--good)':'var(--bad)';}
-
-function openLocalDB(){
-  return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
-    req.onupgradeneeded=()=>{
-      const d=req.result;
-      if(!d.objectStoreNames.contains('items')) d.createObjectStore('items',{keyPath:'id'});
-      if(!d.objectStoreNames.contains('prices')){const s=d.createObjectStore('prices',{keyPath:'key'});s.createIndex('item_id','item_id',{unique:false});s.createIndex('city','city',{unique:false});}
-      if(!d.objectStoreNames.contains('history')) d.createObjectStore('history',{keyPath:'key'});
-      if(!d.objectStoreNames.contains('watchlist')) d.createObjectStore('watchlist',{keyPath:'itemId'});
-      if(!d.objectStoreNames.contains('settings')) d.createObjectStore('settings',{keyPath:'key'});
-      if(!d.objectStoreNames.contains('opportunities')) d.createObjectStore('opportunities',{keyPath:'key'});
-      if(!d.objectStoreNames.contains('scan_runs')){const s=d.createObjectStore('scan_runs',{keyPath:'id',autoIncrement:true});s.createIndex('ts','ts',{unique:false});}
-    };
-    req.onsuccess=()=>{db=req.result;resolve(db)}; req.onerror=()=>reject(req.error);
-  });
-}
-function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('DB abort'));});}
-async function dbPut(store,value){const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);await txDone(tx);}
-async function dbPutMany(store,values){if(!values?.length)return;const tx=db.transaction(store,'readwrite'),s=tx.objectStore(store);for(const v of values)s.put(v);await txDone(tx);}
-async function dbGet(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
-async function dbGetAll(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}
-async function dbClear(store){const tx=db.transaction(store,'readwrite');tx.objectStore(store).clear();await txDone(tx);}
-async function dbDelete(store,key){const tx=db.transaction(store,'readwrite');tx.objectStore(store).delete(key);await txDone(tx);}
-async function updateDbInfo(){
-  if(!db)return; const prices=await dbGetAll('prices'), hist=await dbGetAll('history'), ops=await dbGetAll('opportunities');
-  const newest=prices.reduce((m,x)=>Math.max(m,x.cachedAt||0),0);
-  el('localDbInfo').textContent=`IndexedDB: ${fmt(prices.length)} cen • ${fmt(hist.length)} serii historii • ${fmt(ops.length)} okazji${newest?' • cache '+new Date(newest).toLocaleString('pl-PL'):''}.`;
-  setDbStatus(`${fmt(prices.length)} cen`);
-}
-async function saveWatch(){
-  if(!db)return; await dbClear('watchlist'); await dbPutMany('watchlist',[...state.watched].map(itemId=>({itemId})));
-}
-function currentSettings(){
-  const ids=['itemQuery','tier','enchant','quality','scanLimit','mode','premium','setupFee','undercut','transport','minProfit','minRoi','maxAge','minBuy','excludeSame','onlyFreshBoth','autoRefresh','autoStart','useCache'];
-  const v={}; for(const id of ids){const x=el(id);if(x)v[id]=x.type==='checkbox'?x.checked:x.value;}
-  v.markets=selectedMarkets(); return v;
-}
-async function saveSettings(){if(!db)return;await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
-async function loadSettings(){
-  const rec=await dbGet('settings','ui'); if(!rec?.value)return;
-  const v=rec.value; for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
-  if(Array.isArray(v.markets)){document.querySelectorAll('.marketCheck').forEach(x=>x.checked=v.markets.includes(x.value));}
-}
-function queueSaveSettings(){clearTimeout(settingsTimer);settingsTimer=setTimeout(()=>saveSettings().catch(()=>{}),350);}
-
-function renderMarkets(){el('markets').innerHTML=MARKETS.map((m,i)=>`<label class="check"><input type="checkbox" class="marketCheck" value="${esc(m.api)}" ${i<7?'checked':''}> ${esc(m.label)}</label>`).join('');}
-function selectedMarkets(){return [...document.querySelectorAll('.marketCheck:checked')].map(x=>x.value);}
-function normalizeItem(x){const id=x.UniqueName||x.uniqueName||x.unique_name||x.item_id||x.id;if(!id)return null;const names=x.LocalizedNames||x.localizedNames||x.localized_names||{};const name=names['EN-US']||names['en-US']||names['PL-PL']||names['pl-PL']||x.LocalizedName||x.name||id;return {id:String(id),name:String(name),index:x.Index??x.index??null};}
-function isLikelyTradeable(id){if(!/^T[2-8]_/.test(id))return false;const bad=['QUESTITEM','UNIQUE','TOKEN','SKILLBOOK','JOURNAL_EMPTY','FURNITURE_','MOBDROP_','TREASURE_','FACTION_','CRYSTAL_','DEBUG','NONTRADABLE'];return !bad.some(k=>id.includes(k));}
-async function fetchJson(url,timeout=18000){const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{cache:'no-store',signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}finally{clearTimeout(t);}}
-async function loadItems(){
-  el('dbStatus').textContent='ładowanie…';
-  const meta=await dbGet('settings','items_meta'); const cached=await dbGetAll('items');
-  if(cached.length>1000 && meta?.fetchedAt && now()-meta.fetchedAt<7*864e5){state.items=cached;el('dbStatus').textContent=fmt(cached.length);return;}
-  let lastErr;
-  for(const url of ITEMS_URLS){try{const j=await fetchJson(url,25000);const arr=Array.isArray(j)?j:(j.items||Object.values(j));let items=arr.map(normalizeItem).filter(Boolean).filter(x=>isLikelyTradeable(x.id));items=[...new Map(items.map(x=>[x.id,x])).values()];state.items=items;await dbClear('items');await dbPutMany('items',items);await dbPut('settings',{key:'items_meta',fetchedAt:now(),source:url});el('dbStatus').textContent=fmt(items.length);return;}catch(e){lastErr=e;}}
-  if(cached.length){state.items=cached;el('dbStatus').textContent=fmt(cached.length)+' cache';return;} throw lastErr||new Error('Nie udało się pobrać bazy przedmiotów');
-}
-async function pingApi(){try{await fetchJson(`${API}/api/v2/stats/prices/T4_BAG.json?locations=Caerleon&qualities=1`,9000);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';return true}catch{state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?'błąd/CORS':'offline';el('apiStatus').style.color='var(--bad)';return false}}
-function buildItemSelection(){const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,limit=Math.max(10,Math.min(2500,+el('scanLimit').value||500));let a=state.items.filter(it=>{const id=it.id,base=id.split('@')[0],t=/^T(\d)_/.exec(base)?.[1],e=id.includes('@')?id.split('@').pop():'0';if(tier!=='all'&&t!==tier)return false;if(ench!=='all'&&e!==ench)return false;if(q&&!(it.name.toLowerCase().includes(q)||id.toLowerCase().includes(q)))return false;return true;});if(!q)a.sort((a,b)=>priority(b.id)-priority(a.id));return a.slice(0,limit);}
-function priority(id){let p=0;if(/_(BAG|CAPE|MOUNT|POTION|MEAL|FOOD|ORE|METALBAR|WOOD|PLANKS|HIDE|LEATHER|FIBER|CLOTH|ROCK|STONEBLOCK)/.test(id))p+=5;if(/_(MAIN_|2H_|ARMOR_|HEAD_|SHOES_|OFF_)/.test(id))p+=4;const t=+(/^T(\d)/.exec(id)?.[1]||0);p+=t;if(id.includes('@'))p+=2;return p;}
-function batchesByUrl(items,locations,qualities){const out=[];let batch=[];const fixed=`${API}/api/v2/stats/prices/.json?locations=${encodeURIComponent(locations.join(','))}&qualities=${encodeURIComponent(qualities.join(','))}`;for(const it of items){const test=[...batch,it.id],len=fixed.length+encodeURIComponent(test.join(',')).length;if(len>3400&&batch.length){out.push(batch);batch=[it]}else batch=test;}if(batch.length)out.push(batch);return out;}
-function normalizePriceRow(r){return {...r,item_id:String(r.item_id),city:String(r.city),quality:+r.quality||1,sell_price_min:+r.sell_price_min||0,buy_price_max:+r.buy_price_max||0,key:dbKeyPrice(r),cachedAt:now()};}
-async function persistPriceRows(rows){const normalized=rows.map(normalizePriceRow);await dbPutMany('prices',normalized);return normalized;}
-async function cachedRowsFor(items,markets,qualities){const ids=new Set(items.map(x=>x.id)),ms=new Set(markets),qs=new Set(qualities.map(Number));const all=await dbGetAll('prices');return all.filter(r=>ids.has(r.item_id)&&ms.has(r.city)&&qs.has(+r.quality));}
-function mergeRows(fresh,cached){const m=new Map();for(const r of cached||[])m.set(dbKeyPrice(r),r);for(const r of fresh||[])m.set(dbKeyPrice(r),r);return [...m.values()];}
-function calcOpportunity(rowsByItem,itemMap,mode,cfg){const result=[];for(const [itemId,rows] of rowsByItem){const valid=rows.filter(r=>r&&r.city&&r.city!=='Black Market'&&+r.sell_price_min>=cfg.minBuy);if(!valid.length)continue;const buys=valid.filter(r=>+r.sell_price_min>0).map(r=>({...r,_ageSell:ageHours(r.sell_price_min_date)}));const destinations=mode==='instant'?rows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destPrice:+r.buy_price_max,_destAge:ageHours(r.buy_price_max_date),_destDate:r.buy_price_max_date})):rows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destAge:ageHours(r.sell_price_min_date),_destDate:r.sell_price_min_date}));for(const b of buys){for(const d of destinations){if(cfg.excludeSame&&b.city===d.city)continue;if(+b.quality!==+d.quality)continue;if(cfg.freshBoth&&(b._ageSell>cfg.maxAge||d._destAge>cfg.maxAge))continue;const buy=+b.sell_price_min,gross=d._destPrice;if(!(buy>0&&gross>0))continue;const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup,profit=gross-fees-buy-cfg.transport,roi=profit/buy*100;if(profit<cfg.minProfit||roi<cfg.minRoi)continue;const age=Math.max(b._ageSell,d._destAge),freshFactor=Math.max(.08,1-Math.min(age,168)/192),marginFactor=Math.log1p(Math.max(0,profit)),score=(roi*.58+Math.min(200,marginFactor*12)*.42)*freshFactor,item=itemMap.get(itemId)||{id:itemId,name:itemId};result.push({key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,roi,fees,sourceDate:b.sell_price_min_date,destDate:d._destDate,age,score,mode,history:null,calculatedAt:now()});}}}const best=new Map();for(const o of result){const k=o.itemId+'|'+o.quality;if(!best.has(k)||best.get(k).score<o.score)best.set(k,o);}return [...best.values()];}
-function cfgFromUI(){return {minBuy:+el('minBuy').value||0,minProfit:+el('minProfit').value||0,minRoi:+el('minRoi').value||0,maxAge:+el('maxAge').value||24,excludeSame:el('excludeSame').checked,freshBoth:el('onlyFreshBoth').checked,tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0};}
-async function saveOpportunities(ops){await dbClear('opportunities');await dbPutMany('opportunities',ops);}
-async function scan(opts={}){
-  if(el('scanBtn').disabled&&!opts.auto)return;
-  const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert('Wybierz co najmniej dwa markety.');return;}
-  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert('Brak przedmiotów pasujących do filtrów.');return;}
-  const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów, ${batches.length} partii…`);
-  const fresh=[];let errors=0;
-  for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const ids=batches[i].map(x=>x.id).join(','),url=`${API}/api/v2/stats/prices/${encodeURIComponent(ids).replace(/%2C/g,',')}.json?locations=${encodeURIComponent(markets.join(','))}&qualities=${qualities.join(',')}`;try{const j=await fetchJson(url,18000);if(Array.isArray(j))fresh.push(...j);state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch(e){errors++;state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?'częściowy błąd':'offline';el('apiStatus').style.color='var(--bad)';}setProgress((i+1)/batches.length*82,`API ${i+1}/${batches.length} • rekordy: ${fmt(fresh.length)}${errors?' • błędy: '+errors:''}`);if(i<batches.length-1)await sleep(190);}
-  if(fresh.length)await persistPriceRows(fresh);
-  let cached=[];if(el('useCache').checked&&(errors||!fresh.length))cached=await cachedRowsFor(items,markets,qualities);
-  const rows=mergeRows(fresh,cached);state.raw=rows;
-  if(!rows.length){el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,'Brak danych API i brak lokalnego cache.');await updateDbInfo();return;}
-  const map=new Map(items.map(x=>[x.id,x])),byItem=new Map();for(const r of rows){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}state.opportunities=calcOpportunity(byItem,map,el('mode').value,cfgFromUI());await saveOpportunities(state.opportunities);await dbPut('scan_runs',{ts:now(),items:items.length,markets,qualities,apiRows:fresh.length,cacheRows:cached.length,errors,opportunities:state.opportunities.length,auto:!!opts.auto});el('kpiItems').textContent=fmt(items.length);el('lastScan').textContent=new Date().toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'});el('scanBtn').disabled=false;el('stopBtn').disabled=true;el('validateBtn').disabled=state.opportunities.length===0;setProgress(100,state.stop?'Skan przerwany.':`Gotowe: ${fmt(state.opportunities.length)} okazji • API ${fmt(fresh.length)}${cached.length?' • cache '+fmt(cached.length):''}.`);await updateDbInfo();render();await saveSettings();
-}
-function flag(o){if(o.history?.outlier)return '<span class="tag bad">odchylenie od historii</span>';if(o.age<=3&&o.roi>=15)return '<span class="tag good">mocna</span>';if(o.age<=12)return '<span class="tag">świeża</span>';if(o.age<=24)return '<span class="tag warn">sprawdź w grze</span>';return '<span class="tag bad">stara cena</span>';}
-function filteredResults(){let a=[...state.opportunities],q=el('resultSearch').value.trim().toLowerCase();if(q)a=a.filter(o=>[o.itemName,o.itemId,o.source,o.dest].some(x=>String(x).toLowerCase().includes(q)));if(state.watchOnly)a=a.filter(o=>state.watched.has(o.itemId));const s=el('sortBy').value;a.sort((x,y)=>s==='profit'?y.profit-x.profit:s==='roi'?y.roi-x.roi:s==='age'?x.age-y.age:s==='buy'?x.buy-y.buy:y.score-x.score);return a;}
-function render(){const a=filteredResults();el('emptyState').style.display=a.length?'none':'block';el('resultsBody').innerHTML=a.map((o,i)=>`<tr><td><button class="star ${state.watched.has(o.itemId)?'on':''}" data-watch="${esc(o.itemId)}">★</button></td><td><div class="itemcell">${itemIconImg(o.itemId,o.quality,o.itemName)}<div><div class="itemname">${esc(o.itemName)}</div><div class="itemid">${esc(o.itemId)} • ${qualityName[o.quality]||o.quality}</div></div></div></td><td class="route"><b>${esc(marketLabel(o.source))}</b> → <b>${esc(marketLabel(o.dest))}</b></td><td>${fmt(o.buy)}</td><td>${fmt(o.sell)}</td><td class="${o.profit>=0?'profit':'loss'}">+${fmt(o.profit)}</td><td class="${o.roi>=0?'profit':'loss'}">${pct(o.roi)}</td><td>${fmt(o.fees)}</td><td class="${o.age<=3?'fresh':o.age<=24?'stale':'old'}">${ageText(o.age)}</td><td>${o.score.toFixed(1)}</td><td>${flag(o)}</td><td><button class="btn" data-detail="${i}">Szczegóły</button></td></tr>`).join('');const bestProfit=a.reduce((m,x)=>Math.max(m,x.profit),0),bestRoi=a.reduce((m,x)=>Math.max(m,x.roi),0),avgAge=a.length?a.reduce((s,x)=>s+x.age,0)/a.length:NaN;el('kpiCount').textContent=fmt(a.length);el('kpiProfit').textContent=fmt(bestProfit);el('kpiRoi').textContent=pct(bestRoi);el('kpiAge').textContent=a.length?ageText(avgAge):'—';document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=async()=>{const id=b.dataset.watch;state.watched.has(id)?state.watched.delete(id):state.watched.add(id);await saveWatch();render();});document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(a[+b.dataset.detail]));}
-async function historyFor(itemId,city,quality){const key=`${itemId}|${city}|${quality}`,cached=await dbGet('history',key);if(cached?.fetchedAt&&now()-cached.fetchedAt<6*36e5)return cached.data||[];const end=new Date(),start=new Date(now()-14*864e5),ds=d=>d.toISOString().slice(0,10),url=`${API}/api/v2/stats/history/${encodeURIComponent(itemId)}.json?date=${ds(start)}&end_date=${ds(end)}&locations=${encodeURIComponent(city)}&qualities=${quality}&time-scale=24`;try{const j=await fetchJson(url,18000),h=(j||[]).find(x=>x.item_id===itemId&&x.location===city&&+x.quality===+quality),data=h?.data||[];await dbPut('history',{key,itemId,city,quality:+quality,data,fetchedAt:now()});return data;}catch{return cached?.data||[];}}
-async function validateTop(){const top=[...state.opportunities].sort((a,b)=>b.score-a.score).slice(0,30);if(!top.length)return;el('validateBtn').disabled=true;el('validateBtn').innerHTML='<span class="spinner"></span>Historia…';let done=0;for(const o of top){if(state.stop)break;const city=o.mode==='instant'?o.source:o.dest,current=o.mode==='instant'?o.buy:o.sell,hd=await historyFor(o.itemId,city,o.quality);state.history.set(`${o.itemId}|${city}|${o.quality}`,hd);const prices=hd.map(x=>+x.avg_price).filter(x=>x>0),vols=hd.map(x=>+x.item_count).filter(Number.isFinite);if(prices.length){const avg=prices.reduce((a,b)=>a+b,0)/prices.length,vol=vols.reduce((a,b)=>a+b,0)/(vols.length||1),ratio=current/avg;o.history={avg,vol,outlier:ratio>2.2||ratio<.45,points:hd,basis:o.mode==='instant'?'source-sell-history':'destination-sell-history'};if(o.history.outlier)o.score*=.35;else o.score*=Math.min(1.45,.75+Math.log1p(vol)/5);}done++;setProgress(done/top.length*100,`Historia ${done}/${top.length}…`);await sleep(80);}await saveOpportunities(state.opportunities);el('validateBtn').disabled=false;el('validateBtn').textContent='Historia top 30';setProgress(100,'Historia dodana do rankingu top 30 i zapisana w local.db.');await updateDbInfo();render();}
-function openDetail(o){el('detailTitle').textContent=`${o.itemName} — ${marketLabel(o.source)} → ${marketLabel(o.dest)}`;el('detailCards').innerHTML=`<div class="detail-card"><small>Kupno</small><b>${fmt(o.buy)}</b></div><div class="detail-card"><small>Sprzedaż</small><b>${fmt(o.sell)}</b></div><div class="detail-card"><small>Zysk netto</small><b class="profit">+${fmt(o.profit)}</b></div><div class="detail-card"><small>ROI</small><b class="profit">${pct(o.roi)}</b></div>`;const histCity=o.mode==='instant'?o.source:o.dest,histCurrent=o.mode==='instant'?o.buy:o.sell,data=state.history.get(`${o.itemId}|${histCity}|${o.quality}`)||[];drawChart(data,histCurrent);el('detailNote').innerHTML=`Źródło: <b>${esc(marketLabel(o.source))}</b>, ${new Date(o.sourceDate).toLocaleString('pl-PL')}. Cel: <b>${esc(marketLabel(o.dest))}</b>, ${new Date(o.destDate).toLocaleString('pl-PL')}.<br>Opłaty: <b>${fmt(o.fees)}</b> silver. Rekord może pochodzić z API albo lokalnego cache. Przed dużym transportem zweryfikuj aktywność zlecenia w grze.`;el('detailDialog').showModal();}
-function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:Date.parse(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML='<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">Brak zapisanej historii — użyj „Historia top 30”.</text>';return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">14 dni • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">cel ${fmt(current)}</text>`;}
-function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','source','destination','buy','sell','profit','roi_pct','fees','age_h','score','mode'],lines=[cols.join(';'),...a.map(o=>[o.itemId,o.itemName,qualityName[o.quality],marketLabel(o.source),marketLabel(o.dest),Math.round(o.buy),Math.round(o.sell),Math.round(o.profit),o.roi.toFixed(2),Math.round(o.fees),o.age.toFixed(2),o.score.toFixed(2),o.mode].map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_opportunities.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
-async function loadCachedOpportunities(){const ops=await dbGetAll('opportunities');if(!ops.length)return false;state.opportunities=ops;el('validateBtn').disabled=false;const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString('pl-PL',{hour:'2-digit',minute:'2-digit'})+' cache':'cache';setProgress(0,`Pokazano ${fmt(ops.length)} okazji z local.db.`);render();return true;}
-async function exportDB(){const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`albion-local-db-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
-async function importDBFile(file){const txt=await file.text(),j=JSON.parse(txt);if(j?.format!=='albion-market-local-db'||!j.stores)throw new Error('Nieprawidłowy backup');for(const s of DB_STORES){if(Array.isArray(j.stores[s])){await dbClear(s);await dbPutMany(s,j.stores[s]);}}state.watched=new Set((await dbGetAll('watchlist')).map(x=>x.itemId));state.items=await dbGetAll('items');await loadSettings();await loadCachedOpportunities();await updateDbInfo();}
-async function clearCache(){if(!confirm('Wyczyścić ceny, historię i zapisane okazje? Baza przedmiotów i ustawienia zostaną.'))return;for(const s of ['prices','history','opportunities','scan_runs'])await dbClear(s);state.opportunities=[];state.history.clear();render();await updateDbInfo();setProgress(0,'Lokalny cache wyczyszczony.');}
-function scheduleAuto(){clearInterval(autoTimer);const m=+el('autoRefresh').value||0;if(m>0)autoTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!el('scanBtn').disabled)scan({auto:true}).catch(()=>{});},m*60000);}
-function bind(){
-  el('allMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=true);queueSaveSettings();};el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);queueSaveSettings();};
-  el('scanBtn').onclick=()=>scan();el('stopBtn').onclick=()=>{state.stop=true;state.scanId++;el('stopBtn').disabled=true;el('scanBtn').disabled=false};el('validateBtn').onclick=validateTop;el('resultSearch').oninput=render;el('sortBy').onchange=render;el('watchOnly').onclick=()=>{state.watchOnly=!state.watchOnly;el('watchOnly').textContent=state.watchOnly?'★ Wszystkie wyniki':'★ Obserwowane';render()};el('exportBtn').onclick=exportCsv;el('closeDialog').onclick=()=>el('detailDialog').close();el('dbExportBtn').onclick=exportDB;el('dbImportBtn').onclick=()=>el('dbImportFile').click();el('dbImportFile').onchange=async e=>{try{if(e.target.files[0])await importDBFile(e.target.files[0]);setProgress(100,'Backup local.db zaimportowany.');}catch(err){alert('Import nieudany: '+err.message);}e.target.value='';};el('loadCacheBtn').onclick=loadCachedOpportunities;el('dbClearBtn').onclick=clearCache;
-  document.querySelectorAll('thead th[data-sort]').forEach(th=>th.onclick=()=>{const s=th.dataset.sort;if(['profit','roi','age','buy','score'].includes(s)){el('sortBy').value=s;render();}});
-  document.querySelectorAll('input,select').forEach(x=>{if(x.id!=='resultSearch'&&x.id!=='dbImportFile')x.addEventListener('change',queueSaveSettings);});document.addEventListener('change',e=>{if(e.target.classList?.contains('marketCheck'))queueSaveSettings();});window.addEventListener('online',pingApi);window.addEventListener('offline',()=>{el('apiStatus').textContent='offline';el('apiStatus').style.color='var(--bad)';});
-}
-async function init(){renderMarkets();bind();try{await openLocalDB();setDbStatus('gotowa');const w=await dbGetAll('watchlist');state.watched=new Set(w.map(x=>x.itemId));await loadSettings();await updateDbInfo();setProgress(3,'Ładowanie bazy przedmiotów…');await loadItems();await loadCachedOpportunities();setProgress(0,state.opportunities.length?'Gotowy — pokazano ostatni cache.':'Gotowy — łączenie z API…');await pingApi();scheduleAuto();if(el('autoStart').value==='yes'&&navigator.onLine){setTimeout(()=>scan({auto:true}).catch(()=>{}),700);} }catch(e){setDbStatus('błąd',false);el('dbStatus').textContent='błąd';setProgress(0,'Błąd inicjalizacji: '+esc(e.message||e));}
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-  if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
-}
-init();
-})();
-</script>
+<script src="./app.js"></script>
 </body>
 </html>
