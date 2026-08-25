@@ -1,51 +1,43 @@
-# Albion Europe Market Scanner v5.4 — Market Reality / Hurt
+# Albion Europe Market Scanner v5.4.1 — Calculation Fix / Market Reality
 
-Statyczna aplikacja PWA pod GitHub Pages. Rdzeń pozostaje prosty: **aktualna cena + historyczny wolumen**, ale v5.4 dodaje warstwę interpretacji, żeby odróżnić realną okazję od pojedynczego, starego albo absurdalnego rekordu.
+Statyczna aplikacja PWA pod GitHub Pages do wyszukiwania arbitrażu na rynku Albion Online Europe. Rdzeń: **bieżąca cena + historyczny wolumen**, z warstwą kontroli anomalii i planem hurtowym.
 
-## Co robi v5.4
+## Najważniejsze zmiany v5.4.1
 
-- porównuje ceny między marketami Europe,
-- liczy zysk netto po tax/setup fee i opcjonalnym koszcie transportu,
-- odrzuca skrajne anomalie cen względem innych miast oraz historii 7/14/30 dni,
-- zachowuje najwyższą **realną** cenę sprzedaży — np. 59 zostaje, 5 994 000 przy typowych cenach 33–59 odpada,
-- pobiera historyczny wolumen AODP i używa minimum aktywności rynku zakupu/sprzedaży jako wskaźnika przepustowości trasy,
-- nadaje każdej trasie ocenę **A–D** na podstawie świeżości, płynności, regularności i zgodności ceny z historią,
-- pokazuje referencyjną cenę sprzedaży 7d oraz historyczny spread po opłatach,
-- oznacza `najtańszy` market zakupu oraz `#1 sprzedaż` dla najlepszego realnego celu,
-- dodaje sortowanie po ocenie realności,
-- eksportuje ocenę, referencje 7d, wiek cen i flagi najlepszej trasy do CSV,
-- zachowuje plan hurtowy / Mamut i pełny skan bez limitu 500.
+- zachowuje normalne różnice między miastami, np. 33 → 59,
+- usuwa absurdalnie wysokie cele typu 5 994 000 przy normalnym rynku 33–59,
+- bardzo niskiej ceny zakupu nie usuwa — oznacza ją `sprawdź cenę`,
+- Black Market jest wyłączony z porównania peer-price zwykłych miast,
+- historyczna referencja korzysta najpierw z mediany, potem z odpornego VWAP,
+- Market Reality pokazuje `Data Completeness` i ogranicza ocenę przy brakujących danych,
+- cache cen jest używany tylko dla faktycznie nieudanych batchy API,
+- rekord 0 z udanego API może nadpisać starszą cenę,
+- plan hurtowy nie wymusza minimum 1 sztuki,
+- czas sprzedaży uwzględnia wybrany procent dziennego rynku,
+- podatek i setup fee całej partii są liczone od wartości całego zlecenia,
+- limit budżetu uwzględnia dokładny setup fee planu,
+- pełny skan nadal działa bez limitu 500 (`0 = wszystkie`).
 
-## Nasza interpretacja rynku
+## Jak czytać wynik
 
-### 1. Aktualna cena jest sygnałem, nie prawdą absolutną
-AODP pokazuje najlepsze poziomy aktualnych zleceń wraz z timestampem. Pojedynczy rekord może być stary albo pochodzić z bardzo płytkiego rynku, dlatego sama najwyższa cena nie wystarcza.
+`Zysk top / szt.` to wynik dla bieżącej najlepszej ceny. Nie oznacza, że cała partia jest dostępna po tej cenie.
 
-### 2. Najlepsze realne miasto
-Najpierw porównujemy bieżące ceny między miastami. Normalne różnice zostają. Skrajna cena odstająca wielokrotnie od mediany/MAD pozostałych miast jest usuwana.
+`Zysk transportu` to estymacja planowanej partii. Ilość jest ograniczana przez budżet, wybrany udział historycznego wolumenu, liczbę dni oraz maksymalną liczbę sztuk.
 
-Przykład:
-`33 / 37 / 39 / 40 / 59 / 5 994 000` → wynik docelowy `59`, nie `5 994 000`.
+`Potencjał rynku / d` to wskaźnik porównawczy `zysk top × historyczny wolumen`, a nie gwarantowany dzienny zarobek.
 
-### 3. Historia jako drugi bezpiecznik
-Po pobraniu historii obliczana jest referencja ceny z 7 dni (VWAP; fallback 7d mediana → 14d → 30d). Dopuszczalny mnożnik odchylenia jest szerszy dla rynków o małym obrocie i węższy dla bardzo płynnych.
+## Ograniczenie danych
 
-### 4. Ocena Market Reality A–D
-Ocena nie jest prawdopodobieństwem ani gwarancją. Składa się z:
-- 35% świeżość obu cen,
-- 25% historyczny wolumen trasy,
-- 20% regularność handlu,
-- 20% zgodność bieżących cen z historią.
+Publiczne dane AODP nie dają pełnej głębokości aktualnego order booka. Przed dużym zakupem należy sprawdzić w grze faktyczną ilość sztuk po kolejnych poziomach cen.
 
-### 5. Dwa różne pojęcia zysku
-- `Zysk / szt.` — wynik z bieżącej ceny po opłatach.
-- `Historyczny zysk / szt.` — dla relistingu kontrola, czy podobny spread istniał przy referencjach 7d.
-- `Potencjał rynku / d` — zysk × historyczny wolumen; to górny wskaźnik potencjału, nie gwarantowany zarobek.
-- `Zysk transportu` — wynik planu z budżetem i wybranym udziałem wolumenu.
+## Testy
 
-## Ważne ograniczenie AODP
+Uruchom w katalogu aplikacji:
 
-Publiczny endpoint cen daje najlepsze poziomy cen, ale nie pełną głębokość order booka. Endpoint historii dotyczy historycznych sell orders. Dlatego liczba sztuk w planie hurtowym jest estymacją aktywności rynku, a nie informacją, że dokładnie tyle sztuk kupisz/sprzedasz po jednej cenie.
+```bash
+node --check app.js
+for f in tests/*.js; do node "$f"; done
+```
 
 ## GitHub Pages
 
