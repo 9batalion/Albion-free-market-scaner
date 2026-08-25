@@ -1,55 +1,52 @@
-# Albion Europe Market Scanner v5.3.2 — Hurt / Mamut
+# Albion Europe Market Scanner v5.4 — Market Reality / Hurt
 
-Statyczna aplikacja PWA przygotowana pod GitHub Pages. Rdzeń pozostaje prosty: **cena + wolumen**.
+Statyczna aplikacja PWA pod GitHub Pages. Rdzeń pozostaje prosty: **aktualna cena + historyczny wolumen**, ale v5.4 dodaje warstwę interpretacji, żeby odróżnić realną okazję od pojedynczego, starego albo absurdalnego rekordu.
 
-## Co robi v5.3.2
+## Co robi v5.4
 
 - porównuje ceny między marketami Europe,
 - liczy zysk netto po tax/setup fee i opcjonalnym koszcie transportu,
-- pobiera historyczny wolumen AODP,
-- pokazuje wszystkie zyskowne trasy,
-- ma filtr maksymalnej ceny zakupu, minimalnego zysku i minimalnego wolumenu,
-- dodaje plan handlu hurtowego: liczba sztuk, kapitał i szacowany zysk całego transportu,
-- ma preset `Runy / dusze / relikty` oraz kategorię obejmującą RUNE/SOUL/RELIC/ESSENCE,
-- ma preset `Drobne towary` obejmujący materiały artefaktów, surowce, konsumpcyjne, farming i fishing,
-- działa PL/EN i zapisuje ustawienia w IndexedDB.
+- odrzuca skrajne anomalie cen względem innych miast oraz historii 7/14/30 dni,
+- zachowuje najwyższą **realną** cenę sprzedaży — np. 59 zostaje, 5 994 000 przy typowych cenach 33–59 odpada,
+- pobiera historyczny wolumen AODP i używa minimum aktywności rynku zakupu/sprzedaży jako wskaźnika przepustowości trasy,
+- nadaje każdej trasie ocenę **A–D** na podstawie świeżości, płynności, regularności i zgodności ceny z historią,
+- pokazuje referencyjną cenę sprzedaży 7d oraz historyczny spread po opłatach,
+- oznacza `najtańszy` market zakupu oraz `#1 sprzedaż` dla najlepszego realnego celu,
+- dodaje sortowanie po ocenie realności,
+- eksportuje ocenę, referencje 7d, wiek cen i flagi najlepszej trasy do CSV,
+- zachowuje plan hurtowy / Mamut i pełny skan bez limitu 500.
 
-## Plan hurtowy
+## Nasza interpretacja rynku
 
-Dla każdej trasy:
+### 1. Aktualna cena jest sygnałem, nie prawdą absolutną
+AODP pokazuje najlepsze poziomy aktualnych zleceń wraz z timestampem. Pojedynczy rekord może być stary albo pochodzić z bardzo płytkiego rynku, dlatego sama najwyższa cena nie wystarcza.
 
-`plan sztuk = min(limit wolumenu, limit budżetu, maks. sztuk)`
+### 2. Najlepsze realne miasto
+Najpierw porównujemy bieżące ceny między miastami. Normalne różnice zostają. Skrajna cena odstająca wielokrotnie od mediany/MAD pozostałych miast jest usuwana.
 
-`limit wolumenu = średni wolumen handlowy 7d × dni sprzedaży × wybrany % wolumenu`
+Przykład:
+`33 / 37 / 39 / 40 / 59 / 5 994 000` → wynik docelowy `59`, nie `5 994 000`.
 
-`szac. zysk transportu = plan sztuk × zysk netto / szt.`
+### 3. Historia jako drugi bezpiecznik
+Po pobraniu historii obliczana jest referencja ceny z 7 dni (VWAP; fallback 7d mediana → 14d → 30d). Dopuszczalny mnożnik odchylenia jest szerszy dla rynków o małym obrocie i węższy dla bardzo płynnych.
 
-Domyślnie aplikacja wykorzystuje 20% szacowanego dziennego wolumenu. Jest to konserwatywna estymacja, a nie głębokość aktualnego order booka.
+### 4. Ocena Market Reality A–D
+Ocena nie jest prawdopodobieństwem ani gwarancją. Składa się z:
+- 35% świeżość obu cen,
+- 25% historyczny wolumen trasy,
+- 20% regularność handlu,
+- 20% zgodność bieżących cen z historią.
 
-## Preset runy
-
-Przycisk `Preset: runy / dusze / relikty` ustawia:
-- kategorię RUNE/SOUL/RELIC/ESSENCE,
-- enchant 0,
-- jakość Normal,
-- tryb `Transport + wystawienie sell orderu`,
-- sortowanie po `Zysk transportu`,
-- minimalny wolumen 1 szt./dzień.
+### 5. Dwa różne pojęcia zysku
+- `Zysk / szt.` — wynik z bieżącej ceny po opłatach.
+- `Historyczny zysk / szt.` — dla relistingu kontrola, czy podobny spread istniał przy referencjach 7d.
+- `Potencjał rynku / d` — zysk × historyczny wolumen; to górny wskaźnik potencjału, nie gwarantowany zarobek.
+- `Zysk transportu` — wynik planu z budżetem i wybranym udziałem wolumenu.
 
 ## Ważne ograniczenie AODP
 
-Publiczny endpoint cen pokazuje najlepsze poziomy cen, ale nie pełną liczbę sztuk dostępną po tej konkretnej cenie. Historyczny `item_count` służy do oszacowania aktywności rynku. Dlatego przed zakupem dużej partii warto zweryfikować aktualną głębokość zleceń w grze.
+Publiczny endpoint cen daje najlepsze poziomy cen, ale nie pełną głębokość order booka. Endpoint historii dotyczy historycznych sell orders. Dlatego liczba sztuk w planie hurtowym jest estymacją aktywności rynku, a nie informacją, że dokładnie tyle sztuk kupisz/sprzedasz po jednej cenie.
 
 ## GitHub Pages
 
 Wrzuć zawartość katalogu do repozytorium i włącz Pages dla `main / root`.
-
-
-## Full Scan v5.3.2
-
-- `Limit przedmiotów = 0` oznacza wszystkie przedmioty pasujące do kategorii/Tier/Enchant.
-- Nie ma już domyślnego limitu 500 ani maksymalnego limitu 2500.
-- API cen jest dzielone na partie pod limit URL 4096 znaków.
-- Żądania są celowo ograniczone tempem (~1 żądanie / 1.1 s), aby respektować publiczne limity AODP (180/min oraz 300/5 min).
-- Puste odpowiedzi cenowe są automatycznie dzielone na mniejsze partie (fallback), co pomaga przy kategoriach takich jak runy/dusze/relikty.
-- Preset hurtowy używa pełnego zakresu (`scanLimit=0`) i domyślnie nie wymaga minimalnego wolumenu.

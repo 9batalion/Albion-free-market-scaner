@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>Albion Europe Market Scanner v5.3.2 — Full Scan / Hurt</title>
+<title>Albion Europe Market Scanner v5.4 — Market Reality / Hurt</title>
 <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -26,7 +26,7 @@
 <div class="app">
 <div class="topbar">
 <div class="brand">
-<h1>Albion Europe Market Scanner v5.3.2 — Full Scan / Hurt</h1>
+<h1>Albion Europe Market Scanner v5.4 — Market Reality / Hurt</h1>
 <p>Europe • AODP API • handel hurtowy • cena + wolumen • transport miasto → miasto • PL/EN • IndexedDB • GitHub Pages / PWA</p>
 </div>
 <div class="status">
@@ -85,6 +85,7 @@
 </div>
 <div class="tiny">W trybie natychmiastowym sprzedaż do istniejącego buy orderu nie używa setup fee, ale nadal uwzględniamy podatek od sprzedaży (4% Premium / 8% bez Premium). W trybie wystawienia uwzględniamy podatek oraz setup fee.</div>
 <div class="tiny" style="margin-top:8px">Wolumen pochodzi z historycznych sell orders AODP. Dla sprzedaży do buy orderu wolumen rynku docelowego jest wskaźnikiem aktywności rynku, a nie głębokością konkretnego buy orderu.</div></div>
+<div class="section"><h3>Interpretacja rynku v5.4</h3><div class="tiny">Skaner zachowuje aktualne ceny AODP, ale odrzuca skrajne anomalie względem innych miast i historii. Każda trasa dostaje ocenę A–D złożoną ze świeżości ceny, 7-dniowego wolumenu, regularności handlu i zgodności ceny z historią.</div><div class="tiny" style="margin-top:8px"><b>Najlepsze realne miasto:</b> najwyższa cena, która przejdzie kontrolę anomalii. Przykład: 33 / 37 / 39 / 40 / 59 / 5 994 000 → #1 sprzedaż = 59; 5 994 000 jest odrzucane.</div><div class="tiny" style="margin-top:8px">Ocena A–D nie usuwa normalnych okazji. Jest dodatkową interpretacją i nie zastępuje sprawdzenia order booka w grze.</div></div>
 <div class="section">
 <h3>Warunki skanu</h3>
 <label class="check"><input checked="" id="excludeSame" type="checkbox"/> Wyklucz ten sam market</label>
@@ -137,7 +138,7 @@
 
 <section class="panel">
 <div class="result-filters">
-<div class="result-filter-head"><b>Filtry: tylko cena i wolumen</b><span id="resultCountMeta">—</span></div>
+<div class="result-filter-head"><b>Filtry: cena + wolumen • ocena rynku jest informacją</b><span id="resultCountMeta">—</span></div>
 
 <div class="result-filter-grid">
 <div class="field"><label>Maks. cena zakupu / szt.</label><input id="maxBuyPrice" min="0" step="100" type="number" value="0"/></div>
@@ -148,13 +149,13 @@
 </div>
 <div class="toolbar">
 <input class="grow" id="resultSearch" placeholder="Filtruj wyniki po nazwie, ID lub mieście…"/>
-<select id="sortBy"><option selected="" value="bulkProfit">Sortuj: Zysk transportu</option><option value="profitVolume">Zysk × wolumen</option><option value="profit">Zysk / szt.</option><option value="volume">Wolumen / dzień</option><option value="buy">Najniższa cena zakupu</option><option value="sell">Najwyższa cena sprzedaży</option></select><select id="pageSize" title="Wierszy na stronę"><option value="50">50 / strona</option><option selected="" value="100">100 / strona</option><option value="250">250 / strona</option></select>
+<select id="sortBy"><option selected="" value="bulkProfit">Sortuj: Zysk transportu</option><option value="reality">Ocena realności rynku</option><option value="profitVolume">Potencjał rynku: zysk × wolumen</option><option value="profit">Zysk / szt.</option><option value="volume">Wolumen / dzień</option><option value="buy">Najniższa cena zakupu</option><option value="sell">Najwyższa cena sprzedaży</option></select><select id="pageSize" title="Wierszy na stronę"><option value="50">50 / strona</option><option selected="" value="100">100 / strona</option><option value="250">250 / strona</option></select>
 <button class="btn" id="watchOnly">★ Obserwowane</button>
 <button class="btn" id="exportBtn">Eksport CSV</button>
 </div>
 <div class="table-wrap">
-<table style="min-width:1350px">
-<thead><tr><th></th><th>Przedmiot</th><th>Tryb</th><th>Kup w</th><th data-sort="buy">Cena kupna</th><th>Sprzedaj w</th><th data-sort="sell">Cena sprzedaży</th><th data-sort="profit">Zysk / szt.</th><th data-sort="volume">Wolumen / d</th><th>Plan szt.</th><th>Kapitał</th><th data-sort="bulkProfit">Zysk transportu</th><th data-sort="profitVolume">Zysk × wolumen / d</th><th></th></tr></thead>
+<table style="min-width:1580px">
+<thead><tr><th></th><th>Przedmiot</th><th>Tryb</th><th>Kup w</th><th data-sort="buy">Cena kupna</th><th>Sprzedaj w</th><th data-sort="sell">Cena sprzedaży</th><th data-sort="profit">Zysk / szt.</th><th data-sort="reality">Ocena</th><th>Ref. sprzedaży 7d</th><th data-sort="volume">Wolumen / d</th><th>Plan szt.</th><th>Kapitał</th><th data-sort="bulkProfit">Zysk transportu</th><th data-sort="profitVolume">Potencjał rynku / d</th><th></th></tr></thead>
 <tbody id="resultsBody"></tbody>
 </table>
 <div class="empty" id="emptyState">Uruchom skan, aby wyszukać okazje między marketami Europy.</div>
