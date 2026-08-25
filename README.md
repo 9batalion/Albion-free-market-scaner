@@ -1,4 +1,12 @@
-# Albion Europe Market Scanner v5.4.3 — Target Volume
+# Albion Europe Market Scanner v5.4.4 — Czas odczytu ceny
+
+Najważniejsza zmiana: pod każdą ceną zakupu i sprzedaży widoczna jest pełna data i godzina ostatniego odczytu AODP, zarówno w czasie lokalnym urządzenia, jak i UTC, wraz z wiekiem odczytu. Starsza cena nie jest usuwana wyłącznie z powodu wieku — użytkownik może sam porównać moment odczytu z bieżącą sytuacją w grze.
+
+Znaczniki czasu są także widoczne w szczegółach trasy i zapisywane w CSV jako `buy_price_timestamp_utc` oraz `sell_price_timestamp_utc`.
+
+Szczegóły zmiany: `AUDIT-V5.4.4-QUOTE-TIME.md`.
+
+## Funkcje odziedziczone z v5.4.3
 
 Najważniejsza zmiana: skaner liczy osobno historyczną skalę rynku źródłowego i miasta docelowego. Kolumny `Źródło/d`, `Sprzedaż cel/d` oraz `Zabierz` pomagają ograniczać ilość wożonego towaru do konserwatywnej estymacji tego, co ma sens kupić i sprzedać.
 
