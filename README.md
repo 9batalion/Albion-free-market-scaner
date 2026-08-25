@@ -1,82 +1,45 @@
-# Albion Europe Market Scanner v5.2.5 — Cena i Wolumen
+# Albion Europe Market Scanner v5.3 — Hurt / Mamut
 
-Statyczna aplikacja PWA pod GitHub Pages. Rdzeń jest celowo prosty: **cena kupna, cena sprzedaży, zysk netto i historyczny wolumen**.
+Statyczna aplikacja PWA przygotowana pod GitHub Pages. Rdzeń pozostaje prosty: **cena + wolumen**.
 
-## Co trafia do wyników
+## Co robi v5.3
 
-Dla każdej wybranej jakości i marketu skaner tworzy wszystkie trasy z dodatnim zyskiem netto po:
+- porównuje ceny między marketami Europe,
+- liczy zysk netto po tax/setup fee i opcjonalnym koszcie transportu,
+- pobiera historyczny wolumen AODP,
+- pokazuje wszystkie zyskowne trasy,
+- ma filtr maksymalnej ceny zakupu, minimalnego zysku i minimalnego wolumenu,
+- dodaje plan handlu hurtowego: liczba sztuk, kapitał i szacowany zysk całego transportu,
+- ma preset `Runy / dusze / relikty` oraz kategorię obejmującą RUNE/SOUL/RELIC/ESSENCE,
+- ma preset `Drobne towary` obejmujący materiały artefaktów, surowce, konsumpcyjne, farming i fishing,
+- działa PL/EN i zapisuje ustawienia w IndexedDB.
 
-- podatku sprzedaży,
-- setup fee przy relistingu,
-- opcjonalnym koszcie transportu.
+## Plan hurtowy
 
-Nie ma limitu top-N tras na przedmiot. Confidence, Opportunity Score, Momentum, portfolio i modele ryzyka nie uczestniczą w selekcji ani rankingu.
+Dla każdej trasy:
 
-## Dwa filtry
+`plan sztuk = min(limit wolumenu, limit budżetu, maks. sztuk)`
 
-1. minimalny zysk netto / szt.,
-2. minimalny wolumen handlowy / dzień.
+`limit wolumenu = średni wolumen handlowy 7d × dni sprzedaży × wybrany % wolumenu`
 
-Sortowanie: `zysk × wolumen`, zysk/szt., wolumen/dzień, cena kupna i cena sprzedaży.
+`szac. zysk transportu = plan sztuk × zysk netto / szt.`
 
-## Wolumen
+Domyślnie aplikacja wykorzystuje 20% szacowanego dziennego wolumenu. Jest to konserwatywna estymacja, a nie głębokość aktualnego order booka.
 
-Aplikacja pobiera około 32 dni historii AODP i liczy 30 pełnych dni. Brak dnia sprzedaży w historii = `0`.
+## Preset runy
 
-Dla zwykłej trasy:
+Przycisk `Preset: runy / dusze / relikty` ustawia:
+- kategorię RUNE/SOUL/RELIC/ESSENCE,
+- enchant 0,
+- jakość Normal,
+- tryb `Transport + wystawienie sell orderu`,
+- sortowanie po `Zysk transportu`,
+- minimalny wolumen 1 szt./dzień.
 
-- `buyVolumeDay = średni wolumen 7d marketu zakupu`,
-- `sellVolumeDay = średni wolumen 7d marketu sprzedaży`,
-- `tradeVolumeDay = min(buyVolumeDay, sellVolumeDay)`,
-- `profitVolumeDaily = netProfitPerUnit × tradeVolumeDay`.
+## Ważne ograniczenie AODP
 
-Historia AODP jest historią sell-side i nie oznacza głębokości aktualnego buy orderu.
-
-### Błąd API wolumenu
-
-v5.2.5 rozróżnia **poprawną pustą odpowiedź** od **błędu requestu**:
-
-- poprawna odpowiedź bez rekordu może potwierdzić `0` wolumenu i zostać zapisana w IndexedDB,
-- timeout/CORS/HTTP error/offline **nie zapisuje pustego placeholdera**,
-- jeżeli istnieje starszy cache, może zostać pokazany z oznaczeniem `(cache)`,
-- jeżeli cache nie istnieje, użytkownik widzi `błąd API` / `API error`,
-- następny skan ponawia request zamiast traktować awarię jako zero przez 4h.
-
-## Skalowanie
-
-Wszystkie znalezione trasy są zachowywane, ale tabela renderuje je stronicami: 50 / 100 / 250 wierszy. Dzięki temu kilka tysięcy tras nie jest jednocześnie wstawiane do DOM.
-
-Pobieranie historii wolumenu działa w maksymalnie dwóch workerach z ograniczeniem tempa requestów. Zapytania są nadal grupowane per market i wiele itemów w jednym URL.
-
-## Black Market
-
-Black Market może być celem natychmiastowej sprzedaży do buy orderu. Nie jest źródłem zakupu ani celem relistingu. Publiczne dane nie dają porównywalnego docelowego wolumenu Black Market, więc skaner nie wymyśla tej wartości.
-
-## local.db
-
-IndexedDB przechowuje:
-
-- items,
-- prices,
-- history,
-- watchlist,
-- settings,
-- opportunities,
-- scan_runs.
-
-Stare magazyny `market_stats` i `portfolios` są usuwane podczas migracji DB v11.
-
-## Testy
-
-Uruchom:
-
-```bash
-node tests/financial-tests.js
-node tests/volume-model-tests.js
-node tests/manual-gate-v5.2.5-tests.js
-node tests/pagination-tests.js
-```
+Publiczny endpoint cen pokazuje najlepsze poziomy cen, ale nie pełną liczbę sztuk dostępną po tej konkretnej cenie. Historyczny `item_count` służy do oszacowania aktywności rynku. Dlatego przed zakupem dużej partii warto zweryfikować aktualną głębokość zleceń w grze.
 
 ## GitHub Pages
 
-Wrzuć zawartość katalogu do repozytorium i włącz Pages dla `main` / root. Backend nie jest wymagany.
+Wrzuć zawartość katalogu do repozytorium i włącz Pages dla `main / root`.

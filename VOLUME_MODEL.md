@@ -1,31 +1,19 @@
-# Volume Model v5.2.5
+# Model wolumenu v5.3
 
-## Źródło
+Wolumen jest liczony z 7/30-dniowej historii sell-side AODP. Dni bez danych w pełnym oknie są liczone jako 0.
 
-AODP history, `time-scale=24`, zakres ok. 32 dni. Do statystyk używane są pełne dni przed bieżącym dniem.
+Dla transportu miasto → miasto:
 
-## Okna
+`trade volume/day = min(source 7d avg, destination 7d avg)`
 
-`1d / 3d / 7d / 14d / 30d`.
+Plan hurtowy:
 
-Dzień bez sprzedaży jest liczony jako `0`, dzięki czemu średnia nie jest średnią wyłącznie z aktywnych dni.
+`volume cap = trade volume/day × planned days × volume share %`
 
-## Wartości w tabeli
+`budget cap = budget per route / unit capital`
 
-Dla marketu źródłowego i docelowego:
+`planned units = min(volume cap, budget cap, max units)`
 
-- średni wolumen 7 dni,
-- wolumen handlowy/d = minimum z obu marketów,
-- wolumen 7 dni = minimum z sum 7d,
-- wolumen 30 dni = minimum z sum 30d,
-- zysk × wolumen/d = zysk netto na sztuce × wolumen handlowy/d.
+`trip profit = planned units × net profit/unit`
 
-Dla Black Market docelowy wolumen handlowy pozostaje niedostępny.
-
-## Semantyka błędów
-
-Stan `0` i stan `API error` są różne.
-
-`0` wolumenu można zapisać wyłącznie po poprawnej odpowiedzi AODP, w której dany item/jakość nie wystąpiły lub historia ma zerowy obrót. Wyjątek sieciowy nigdy nie tworzy zerowego placeholdera.
-
-Jeżeli odświeżenie się nie uda, istniejący cache może być pokazany jako `(cache)`. Bez cache widoczny jest `błąd API`.
+Model nie interpretuje wolumenu jako aktualnej głębokości order booka.
