@@ -1,4 +1,18 @@
-# Albion Europe Market Scanner v5.4.4 — Czas odczytu ceny
+# Albion Europe Market Scanner v5.4.6 — Pierwszy skan ręczny
+
+Po każdym otwarciu aplikacji pierwszy skan musi zostać uruchomiony ręcznie. Harmonogram pozostaje dostępny i domyślnie ma interwał 10 minut, ale jest zablokowany do chwili, gdy użytkownik skonfiguruje skaner i naciśnie `Skanuj`. Pierwsze ręczne uruchomienie odblokowuje harmonogram i rozpoczyna odliczanie interwału od początku.
+
+W konfiguracji można wybrać osobno `Miasto startowe` i `Miasto docelowe`. Konkretna para ogranicza wyniki do wskazanej trasy. Wartość `Dowolne z zaznaczonych` pozostawia porównywanie wszystkich zaznaczonych marketów. Black Market jest dostępny wyłącznie jako miasto docelowe.
+
+Wyniki są domyślnie sortowane według świeżości kompletnej trasy: na górze znajduje się oferta, dla której starsza z ceny zakupu i ceny sprzedaży jest najnowsza. Każdy merytoryczny nagłówek tabeli jest klikalny. Pierwsze kliknięcie sortuje według danej kolumny, a drugie odwraca kolejność; aktywna kolumna i kierunek są oznaczone strzałką.
+
+Szczegóły zmiany: `AUDIT-V5.4.6-MANUAL-FIRST-SCAN.md`.
+
+## Funkcje odziedziczone z v5.4.5
+
+Przy takim samym wieku notowań wyżej trafia trasa z większym szacowanym zyskiem transportu. Skan nie odrzuca oferty wyłącznie dlatego, że jej odczyt jest starszy.
+
+## Funkcje odziedziczone z v5.4.4
 
 Najważniejsza zmiana: pod każdą ceną zakupu i sprzedaży widoczna jest pełna data i godzina ostatniego odczytu AODP, zarówno w czasie lokalnym urządzenia, jak i UTC, wraz z wiekiem odczytu. Starsza cena nie jest usuwana wyłącznie z powodu wieku — użytkownik może sam porównać moment odczytu z bieżącą sytuacją w grze.
 

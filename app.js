@@ -24,7 +24,7 @@ const DB_NAME='albion_europe_market_local_db';
 const DB_VERSION=14;
 const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs'];
 const el = id => document.getElementById(id);
-const state = {items:[],itemById:new Map(),raw:[],opportunities:[],stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0}};
+const state = {items:[],itemById:new Map(),raw:[],opportunities:[],stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0},manualScanUnlocked:false,sortDirection:'desc'};
 let db=null,settingsTimer=null,autoTimer=null;
 
 const locale = () => state.lang==='en'?'en-US':'pl-PL';
@@ -40,6 +40,45 @@ function parseAodpTime(d){
 }
 const ageHours = d => {const t=parseAodpTime(d);if(!Number.isFinite(t))return Infinity;const h=(now()-t)/36e5;return h < -0.25 ? Infinity : Math.max(0,h);};
 const ageText = h => !Number.isFinite(h)?tr('brak','n/a'):h<1?Math.round(h*60)+' min':h<48?h.toLocaleString(locale(),{maximumFractionDigits:1})+' h':(h/24).toLocaleString(locale(),{maximumFractionDigits:1})+' d';
+const routeQuoteAgeHours = o => Math.max(ageHours(o?.sourceDate),ageHours(o?.destDate));
+function compareRouteFreshness(x,y){
+  const ax=routeQuoteAgeHours(x),ay=routeQuoteAgeHours(y),fx=Number.isFinite(ax),fy=Number.isFinite(ay);
+  if(fx!==fy)return fx?-1:1;
+  if(fx&&ax!==ay)return ax-ay;
+  return (y.bulk?.totalProfit||0)-(x.bulk?.totalProfit||0)||(y.profit||0)-(x.profit||0);
+}
+const SORT_KEYS=new Set(['freshness','item','mode','source','buy','dest','sell','profit','reality','sellRef','sourceVolume','volume','qty','capital','bulkProfit','profitVolume']);
+function defaultSortDirection(key){return ['item','mode','source','buy','dest'].includes(key)?'asc':'desc';}
+function compareOpportunityBySort(x,y,key){
+  const num=(a,b)=>(Number.isFinite(a)?a:-Infinity)-(Number.isFinite(b)?b:-Infinity),txt=(a,b)=>String(a??'').localeCompare(String(b??''),locale(),{sensitivity:'base'});
+  if(key==='freshness')return compareRouteFreshness(x,y);
+  if(key==='item')return txt(displayOpportunityName(x),displayOpportunityName(y));
+  if(key==='mode')return txt(simpleModeLabel(x),simpleModeLabel(y));
+  if(key==='source')return txt(marketLabel(x.source),marketLabel(y.source));
+  if(key==='dest')return txt(marketLabel(x.dest),marketLabel(y.dest));
+  if(key==='buy')return num(x.buy,y.buy);
+  if(key==='sell')return num(y.sell,x.sell);
+  if(key==='profit')return num(y.profit,x.profit);
+  if(key==='reality')return num(y.reality?.score,x.reality?.score)||num(y.bulk?.totalProfit,x.bulk?.totalProfit);
+  if(key==='sellRef')return num(y.reality?.sellRef,x.reality?.sellRef);
+  if(key==='sourceVolume')return num(y.volume?.sourceSafeDaily,x.volume?.sourceSafeDaily);
+  if(key==='volume')return num(y.volume?.effectiveDaily,x.volume?.effectiveDaily);
+  if(key==='qty')return num(y.bulk?.qty,x.bulk?.qty);
+  if(key==='capital')return num(y.bulk?.capital,x.bulk?.capital);
+  if(key==='bulkProfit')return num(y.bulk?.totalProfit,x.bulk?.totalProfit);
+  return num(y.profitVolumeDaily,x.profitVolumeDaily);
+}
+function setSort(key,toggle=false){
+  if(!SORT_KEYS.has(key))return;
+  const current=el('sortBy').value;
+  if(toggle&&current===key)state.sortDirection=state.sortDirection==='asc'?'desc':'asc';
+  else{el('sortBy').value=key;state.sortDirection=defaultSortDirection(key);}
+  state.page=1;render();queueSaveSettings();
+}
+function updateSortHeaders(){
+  const active=el('sortBy')?.value;
+  document.querySelectorAll('thead th[data-sort]').forEach(th=>{const on=th.dataset.sort===active;th.classList.toggle('sort-active',on);th.classList.toggle('sort-asc',on&&state.sortDirection==='asc');th.classList.toggle('sort-desc',on&&state.sortDirection==='desc');th.setAttribute('aria-sort',on?(state.sortDirection==='asc'?'ascending':'descending'):'none');th.title=tr('Kliknij, aby sortować; kliknij ponownie, aby odwrócić kolejność.','Click to sort; click again to reverse the order.');});
+}
 function quoteTimestampText(d){
   const t=parseAodpTime(d);if(!Number.isFinite(t))return tr('czas odczytu nieznany','unknown observation time');
   const dt=new Date(t),local=dt.toLocaleString(locale(),{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}),utc=dt.toLocaleTimeString(locale(),{timeZone:'UTC',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -168,7 +207,11 @@ Object.assign(TEXT_PAIRS,{
   'Runy / dusze / relikty':'Runes / souls / relics','Drobne towary':'Small goods','Runy, dusze, relikty i esencje':'Runes, souls, relics & essences',
   'Handel hurtowy / Mamut':'Bulk trade / Mammoth','Preset: runy / dusze / relikty':'Preset: runes / souls / relics','Profil partii':'Batch profile','Bezpieczny — 10%':'Safe — 10%','Normalny — 20%':'Normal — 20%','Agresywny — 35%':'Aggressive — 35%','Maksymalny — 50%':'Maximum — 50%','Własny':'Custom','Udział sprzedaży w mieście docelowym %':'Destination market share %','Źródło/d':'Source/day','Sprzedaż cel/d':'Destination sales/day','Zabierz':'Take','Źródło bezpieczne / dzień':'Safe source / day','Sprzedaż cel bezpieczna / dzień':'Safe destination sales / day','Skala trasy / dzień':'Route scale / day',
   'Budżet na jedną trasę (silver)':'Budget per route (silver)','Użyj % dziennego wolumenu':'Use % of daily volume','Planowany czas sprzedaży (dni)':'Planned sell time (days)','Maks. sztuk na trasę':'Max units per route',
-  'Maks. cena zakupu / szt.':'Max buy price / unit','Plan szt.':'Planned units','Kapitał planu':'Plan capital','Kapitał':'Capital','Zysk transportu':'Trip profit','Szac. zysk transportu':'Est. trip profit','Czas sprzedaży planu':'Plan sell-through','Sortuj: Zysk transportu':'Sort: Trip profit'
+  'Maks. cena zakupu / szt.':'Max buy price / unit','Plan szt.':'Planned units','Kapitał planu':'Plan capital','Kapitał':'Capital','Zysk transportu':'Trip profit','Szac. zysk transportu':'Est. trip profit','Czas sprzedaży planu':'Plan sell-through','Sortuj: Zysk transportu':'Sort: Trip profit','Sortuj: Najbardziej aktualne':'Sort: Most recent',
+  'Domyślnie skanowanie jest całkowicie wyłączone.':'Scanning is completely disabled by default.','Najpierw skonfiguruj zakres, miasta, strategię i limity, a następnie użyj przycisku „Skanuj”. Automatyzację możesz włączyć później.':'Configure scope, cities, strategy, and limits first, then press “Scan”. You can enable automation later.',
+  'Automatyczny harmonogram po pierwszym skanie':'Automatic schedule after first scan','Pierwszy skan każdej sesji zawsze uruchamiasz ręcznie.':'You always start the first scan of each session manually.','Harmonogram zaczyna odliczanie dopiero po kliknięciu „Skanuj” i wykonaniu pierwszego skanu.':'The schedule starts counting down only after you press “Scan” and start the first scan.',
+  'Kliknij nagłówek kolumny, aby ją posortować. Drugie kliknięcie odwraca kolejność.':'Click a column header to sort by it. A second click reverses the order.','Sortuj: Nazwa przedmiotu':'Sort: Item name','Sortuj: Tryb':'Sort: Mode','Sortuj: Miasto zakupu':'Sort: Buy city','Sortuj: Miasto sprzedaży':'Sort: Sell city','Sortuj: Cena referencyjna 7d':'Sort: 7d reference price','Sortuj: Wolumen źródła':'Sort: Source volume','Sortuj: Sztuki do zabrania':'Sort: Units to take','Sortuj: Kapitał':'Sort: Capital',
+  'Miasto startowe':'Starting city','Miasto docelowe':'Destination city','Dowolne z zaznaczonych':'Any selected city','Wybrana para miast ogranicza wyniki do konkretnej trasy. Opcja „Dowolne” porównuje wszystkie zaznaczone markety.':'A selected city pair limits results to that route. “Any” compares all selected markets.','Miasto startowe i docelowe muszą być różne.':'Starting and destination cities must be different.'
 });
 const EN_TO_PL = Object.fromEntries(Object.entries(TEXT_PAIRS).map(([pl,en])=>[en,pl]));
 function translateKnownText(s){if(s==null)return s;const str=String(s);if(state.lang==='en')return TEXT_PAIRS[str]||str;return EN_TO_PL[str]||str;}
@@ -185,7 +228,7 @@ function translateDynamic(s){
 }
 function applyLanguage(lang,persist=true){
   state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
-  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.4.4 — Quote Time':'Albion Europe Market Scanner v5.4.4 — Czas odczytu ceny';
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.4.6 — Manual First Scan':'Albion Europe Market Scanner v5.4.6 — Pierwszy skan ręczny';
   if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, peleryna…','e.g. Bag, T6_BAG, cape…');
   if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
   const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
@@ -279,9 +322,9 @@ async function updateDbInfo(){
 }
 async function saveWatch(){await dbClear('watchlist');await dbPutMany('watchlist',[...state.watched].map(itemId=>({itemId})));}
 function currentSettings(){
-  const ids=['languageSelect','itemQuery','tier','enchant','quality','scanLimit','mode','premium','setupFee','undercut','transport','maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkRiskProfile','bulkVolumeShare','bulkDays','bulkMaxQty','excludeSame','autoRefresh','autoStart','useCache','pageSize'];
+  const ids=['languageSelect','itemQuery','tier','enchant','quality','scanLimit','mode','startCity','destinationCity','premium','setupFee','undercut','transport','maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkRiskProfile','bulkVolumeShare','bulkDays','bulkMaxQty','excludeSame','autoRefresh','useCache','sortBy','pageSize'];
   const v={};for(const id of ids){const x=el(id);if(x)v[id]=x.type==='checkbox'?x.checked:x.value;}
-  v.markets=selectedMarkets();v.categories=selectedCategories();v._uiSchema=8;return v;
+  v.markets=selectedMarkets();v.categories=selectedCategories();v.sortDirection=state.sortDirection;v._uiSchema=12;return v;
 }
 async function saveSettings(){if(!db)return;await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
 async function loadSettings(){
@@ -289,8 +332,18 @@ async function loadSettings(){
   const v={...rec.value};
   // v5.3: price + volume remain the core; bulk plan estimates route quantity.
   if((+v._uiSchema||1)<8){Object.assign(v,{maxBuyPrice:v.maxBuyPrice||'0',minProfit:v.minProfit||'0',minVolumeDay:v.minVolumeDay||'0',bulkBudget:v.bulkBudget||'5000000',bulkRiskProfile:v.bulkRiskProfile||'normal',bulkVolumeShare:v.bulkVolumeShare||'20',bulkDays:v.bulkDays||'1',bulkMaxQty:v.bulkMaxQty||'10000',quality:v.quality||'all',pageSize:v.pageSize||'100',scanLimit:'0',_uiSchema:8});}
-  for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets'||id==='categories'||id==='_uiSchema')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
+  // v5.4.5: one-time safety migration — configure first, scan only after an explicit click.
+  if((+v._uiSchema||1)<9){Object.assign(v,{autoRefresh:'0',autoStart:'no',_uiSchema:9});}
+  // v5.4.5: newest complete buy/sell quote pair is the default result order.
+  if((+v._uiSchema||1)<10){Object.assign(v,{sortBy:'freshness',_uiSchema:10});}
+  // v5.4.6: keep the interval, but never allow it to perform the first scan of a session.
+  if((+v._uiSchema||1)<11){Object.assign(v,{autoRefresh:v.autoRefresh==='0'?'10':(v.autoRefresh||'10'),sortBy:'freshness',_uiSchema:11});delete v.autoStart;}
+  // v5.4.6: clickable table headers and optional fixed city-to-city route.
+  if((+v._uiSchema||1)<12){Object.assign(v,{sortDirection:defaultSortDirection(v.sortBy||'freshness'),startCity:v.startCity||'all',destinationCity:v.destinationCity||'all',_uiSchema:12});}
+  for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets'||id==='categories'||id==='sortDirection'||id==='_uiSchema')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
+  state.sortDirection=['asc','desc'].includes(v.sortDirection)?v.sortDirection:defaultSortDirection(v.sortBy||'freshness');
   if(Array.isArray(v.markets)){const set=new Set(v.markets);document.querySelectorAll('.marketCheck').forEach(x=>x.checked=set.has(x.value));}
+  ensureRouteMarketsSelected();
   if(Array.isArray(v.categories))setSelectedCategories(v.categories);
   applyLanguage(v.languageSelect||'pl',false);
 }
@@ -298,6 +351,9 @@ function queueSaveSettings(){clearTimeout(settingsTimer);settingsTimer=setTimeou
 
 function renderMarkets(){el('markets').innerHTML=MARKETS.map((m,i)=>`<label class="check"><input type="checkbox" class="marketCheck" value="${esc(m.api)}" ${i<7?'checked':''}> ${esc(m.label)}</label>`).join('');}
 function selectedMarkets(){return [...document.querySelectorAll('.marketCheck:checked')].map(x=>x.value);}
+function ensureRouteMarketsSelected(){
+  for(const id of ['startCity','destinationCity']){const city=el(id)?.value;if(!city||city==='all')continue;const box=[...document.querySelectorAll('.marketCheck')].find(x=>x.value===city);if(box)box.checked=true;}
+}
 function normalizeItem(x){const id=x.UniqueName||x.uniqueName||x.unique_name||x.item_id||x.id;if(!id)return null;const names=x.LocalizedNames||x.localizedNames||x.localized_names||{};const namePl=names['PL-PL']||names['pl-PL']||null,nameEn=names['EN-US']||names['en-US']||x.LocalizedName||x.name||null,name=namePl||nameEn||id;return{id:String(id),name:String(name),namePl:String(namePl||nameEn||id),nameEn:String(nameEn||namePl||id),index:x.Index??x.index??null};}
 function isLikelyTradeable(id){if(!/^T[2-8]_/.test(id))return false;const bad=['QUESTITEM','UNIQUE','TOKEN','SKILLBOOK','JOURNAL_EMPTY','FURNITURE_','MOBDROP_','TREASURE_','FACTION_','CRYSTAL_','DEBUG','NONTRADABLE'];return !bad.some(k=>id.includes(k));}
 async function fetchJson(url,timeout=18000){const c=new AbortController(),t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{cache:'no-store',signal:c.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}finally{clearTimeout(t);}}
@@ -344,21 +400,22 @@ async function persistPriceRows(rows){const normalized=rows.map(r=>normalizePric
 async function cachedRowsFor(items,markets,qualities){const ids=new Set(items.map(x=>x.id)),ms=new Set(markets),qs=new Set(qualities.map(Number)),all=await dbGetAll('prices');return all.filter(r=>ids.has(r.item_id)&&ms.has(r.city)&&qs.has(+r.quality)).map(r=>({...r,_source:'cache'}));}
 function mergeRows(fresh,cached){const m=new Map();for(const r of cached||[])m.set(dbKeyPrice(r),r);for(const r of fresh||[])m.set(dbKeyPrice(r),r);return [...m.values()];}
 
-function cfgFromUI(){return{maxBuyPrice:+el('maxBuyPrice')?.value||0,minProfit:+el('minProfit')?.value||0,minVolumeDay:+el('minVolumeDay')?.value||0,bulkBudget:Math.max(0,+el('bulkBudget')?.value||0),bulkVolumeShare:clamp(+el('bulkVolumeShare')?.value||20,1,100),bulkDays:Math.max(.25,+el('bulkDays')?.value||1),bulkMaxQty:Math.max(1,Math.floor(+el('bulkMaxQty')?.value||10000)),excludeSame:!!el('excludeSame')?.checked,tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0};}
+function cfgFromUI(){return{maxBuyPrice:+el('maxBuyPrice')?.value||0,minProfit:+el('minProfit')?.value||0,minVolumeDay:+el('minVolumeDay')?.value||0,bulkBudget:Math.max(0,+el('bulkBudget')?.value||0),bulkVolumeShare:clamp(+el('bulkVolumeShare')?.value||20,1,100),bulkDays:Math.max(.25,+el('bulkDays')?.value||1),bulkMaxQty:Math.max(1,Math.floor(+el('bulkMaxQty')?.value||10000)),excludeSame:!!el('excludeSame')?.checked,startCity:el('startCity')?.value||'all',destinationCity:el('destinationCity')?.value||'all',tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0};}
 function calcMode(rowsByItem,itemMap,mode,cfg,diag){
   const result=[],md=diag.modes[mode]={items:0,qualities:0,pairs:0,rejectSame:0,rejectNonPositive:0,rejectAnomaly:0,flagLowAnomaly:0,acceptedPairs:0,signals:0};
+  const startCity=cfg.startCity||'all',destinationCity=cfg.destinationCity||'all';
   for(const [itemId,rows] of rowsByItem){
     md.items++;
     const byQ=new Map();for(const r of rows){const q=+r.quality||1;if(!byQ.has(q))byQ.set(q,[]);byQ.get(q).push(r);}
     for(const qRows of byQ.values()){
       md.qualities++;
-      const candidateBuys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0);
+      const candidateBuys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0&&(startCity==='all'||r.city===startCity));
       const sourceGuard=marketPriceGuard(candidateBuys,'sell_price_min');
       // Do not discard extreme lows: they may be genuine mistaken listings. Mark them and verify freshness/history later.
       const buys=candidateBuys.map(r=>{const low=sourceGuard.isLowOutlier(+r.sell_price_min);if(low)md.flagLowAnomaly++;return {...r,_sourcePeerLow:low};});
       const candidateDestinations=mode==='instant'
-        ?qRows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destRawPrice:+r.buy_price_max,_destPrice:+r.buy_price_max,_destDate:r.buy_price_max_date}))
-        :qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destRawPrice:+r.sell_price_min,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destDate:r.sell_price_min_date}));
+        ?qRows.filter(r=>+r.buy_price_max>0&&(destinationCity==='all'||r.city===destinationCity)).map(r=>({...r,_destRawPrice:+r.buy_price_max,_destPrice:+r.buy_price_max,_destDate:r.buy_price_max_date}))
+        :qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0&&(destinationCity==='all'||r.city===destinationCity)).map(r=>({...r,_destRawPrice:+r.sell_price_min,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destDate:r.sell_price_min_date}));
       // Black Market buy orders are not peers of ordinary city prices and are excluded from the city peer median/MAD.
       const guard=marketPriceGuard(candidateDestinations.filter(r=>r.city!=='Black Market'),'_destRawPrice');
       const destinations=candidateDestinations.filter(r=>{
@@ -507,8 +564,12 @@ function renderScanDiagnostics(){
 function countMatchingItems(){const q=el('itemQuery').value.trim().toLowerCase(),tier=el('tier').value,ench=el('enchant').value,cats=new Set(selectedCategories());return state.items.filter(it=>{const {tier:t,enchant:e}=itemTierEnchant(it.id);if(t<4||t>8)return false;if(tier!=='all'&&String(t)!==tier)return false;if(ench!=='all'&&String(e)!==ench)return false;if(!cats.has(categoryForItem(it.id)))return false;if(q){const names=[it.name,it.namePl,it.nameEn,it.id].filter(Boolean).map(x=>String(x).toLowerCase());if(!names.some(x=>x.includes(q)))return false;}return true;}).length;}
 
 async function scan(opts={}){
-  if(el('scanBtn').disabled&&!opts.auto)return;const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert(tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
-  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;
+  if(opts.auto&&!state.manualScanUnlocked)return;
+  if(el('scanBtn').disabled&&!opts.auto)return;ensureRouteMarketsSelected();const markets=selectedMarkets();if(markets.length<2){if(!opts.auto)alert(tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
+  if(el('excludeSame').checked&&el('startCity').value!=='all'&&el('startCity').value===el('destinationCity').value){if(!opts.auto)alert(tr('Miasto startowe i docelowe muszą być różne.','Starting and destination cities must be different.'));return;}
+  const items=buildItemSelection();if(!items.length){if(!opts.auto)alert(tr('Brak przedmiotów pasujących do filtrów.','No items match the selected filters/categories.'));return;}
+  if(!opts.auto){state.manualScanUnlocked=true;scheduleAuto();}
+  state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;
   const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,state.lang==='en'?`${opts.auto?'Auto-scan':'Start'}: ${fmt(items.length)} items…`:`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów…`);
   const normalizedFresh=[];const failedPriceItemIds=new Set();let errors=0,processedItems=0,rawApiRows=0,usefulApiRows=0;
   for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const batch=batches[i];try{const j=await fetchPriceBatchRobust(batch,markets,qualities);rawApiRows+=Array.isArray(j)?j.length:0;const returned=Array.isArray(j)?j:[];if(returned.length){const saved=await persistPriceRows(returned);normalizedFresh.push(...saved);usefulApiRows+=saved.filter(r=>(+r.sell_price_min||0)>0||(+r.buy_price_max||0)>0||(+r.sell_price_max||0)>0||(+r.buy_price_min||0)>0).length;}state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;for(const it of batch)failedPriceItemIds.add(it.id);state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}processedItems+=batch.length;state.scanDiagnostics.apiRows=usefulApiRows;setProgress((i+1)/batches.length*70,state.lang==='en'?`Prices: ${fmt(processedItems)} / ${fmt(items.length)} items • batch ${i+1}/${batches.length} • useful rows ${fmt(usefulApiRows)}`:`Ceny: ${fmt(processedItems)} / ${fmt(items.length)} przedmiotów • partia ${i+1}/${batches.length} • użyteczne rekordy ${fmt(usefulApiRows)}`);}
@@ -554,7 +615,7 @@ function applyBulkPlan(o,cfg){o.bulk=bulkPlanFor(o,cfg);return o;}
 function applyBulkPreset(){
   setSelectedCategories(['bulkMaterials']);
   el('itemQuery').value='';el('tier').value='all';el('enchant').value='0';el('quality').value='1';el('mode').value='relist';el('scanLimit').value='0';
-  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';if(el('bulkRiskProfile'))el('bulkRiskProfile').value='normal';el('bulkVolumeShare').value='20';el('sortBy').value='bulkProfit';state.page=1;queueSaveSettings();render();
+  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';if(el('bulkRiskProfile'))el('bulkRiskProfile').value='normal';el('bulkVolumeShare').value='20';el('sortBy').value='freshness';state.sortDirection='desc';state.page=1;queueSaveSettings();render();
   setProgress(0,tr('Preset hurtowy gotowy — uruchom skan.','Bulk preset ready — run the scan.'));
 }
 
@@ -566,8 +627,8 @@ function filteredResults(){
   a=a.filter(o=>(o.profit??-Infinity)>=cfg.minProfit);
   if(cfg.minVolumeDay>0)a=a.filter(o=>Number.isFinite(o.volume?.effectiveDaily)&&(o.volume.effectiveDaily||0)>=cfg.minVolumeDay);
   a.forEach(o=>applyBulkPlan(o,cfg));
-  const sort=el('sortBy').value;
-  a.sort((x,y)=>sort==='bulkProfit'?(y.bulk?.totalProfit||0)-(x.bulk?.totalProfit||0):sort==='reality'?(y.reality?.score||0)-(x.reality?.score||0)||((y.bulk?.totalProfit||0)-(x.bulk?.totalProfit||0)):sort==='profit'?y.profit-x.profit:sort==='volume'?(y.volume?.effectiveDaily??-1)-(x.volume?.effectiveDaily??-1):sort==='buy'?x.buy-y.buy:sort==='sell'?y.sell-x.sell:(y.profitVolumeDaily||0)-(x.profitVolumeDaily||0));return a;
+  const sort=SORT_KEYS.has(el('sortBy').value)?el('sortBy').value:'freshness',baseDirection=defaultSortDirection(sort),direction=['asc','desc'].includes(state.sortDirection)?state.sortDirection:baseDirection;
+  a.sort((x,y)=>{const n=compareOpportunityBySort(x,y,sort);return direction===baseDirection?n:-n;});return a;
 }
 function volumeFmt(v,status='fresh'){
   if(status==='error'&&!Number.isFinite(v))return tr('błąd API','API error');
@@ -585,7 +646,7 @@ function render(){
   const bestProfit=all.reduce((m,x)=>Math.max(m,x.profit||0),0),withVol=all.filter(x=>Number.isFinite(x.volume?.effectiveDaily)),maxVol=withVol.reduce((m,x)=>Math.max(m,x.volume.effectiveDaily||0),0),bestTrade=all.reduce((m,x)=>Math.max(m,x.profitVolumeDaily||0),0);el('kpiCount').textContent=fmt(all.length);el('kpiProfit').textContent=fmt(bestProfit);el('kpiVolume').textContent=withVol.length?volumeFmt(maxVol):'—';el('kpiTradeProfit').textContent=fmt(bestTrade);el('kpiVolumeRows').textContent=fmt(withVol.length);
   if(el('pageInfo'))el('pageInfo').textContent=state.lang==='en'?`Page ${state.page} of ${pages} • rows ${all.length?start+1:0}–${Math.min(start+pageSize,all.length)} of ${all.length}`:`Strona ${state.page} z ${pages} • wiersze ${all.length?start+1:0}–${Math.min(start+pageSize,all.length)} z ${all.length}`;
   if(el('prevPage'))el('prevPage').disabled=state.page<=1;if(el('nextPage'))el('nextPage').disabled=state.page>=pages;
-  renderScanDiagnostics();document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=async()=>{const id=b.dataset.watch;state.watched.has(id)?state.watched.delete(id):state.watched.add(id);await saveWatch();render();});document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(pageRows[+b.dataset.detail]));
+  updateSortHeaders();renderScanDiagnostics();document.querySelectorAll('[data-watch]').forEach(b=>b.onclick=async()=>{const id=b.dataset.watch;state.watched.has(id)?state.watched.delete(id):state.watched.add(id);await saveWatch();render();});document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>openDetail(pageRows[+b.dataset.detail]));
 }
 function openDetail(o){
   el('detailTitle').textContent=`${displayOpportunityName(o)} — ${marketLabel(o.source)} → ${marketLabel(o.dest)}`;const v=o.volume||{};
@@ -612,7 +673,7 @@ async function exportDB(){
   const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};
   for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);
   const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=u;a.download=`albion-local-db-v5_4_4-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  a.href=u;a.download=`albion-local-db-v5_4_6-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 async function importDBFile(file){
   const txt=await file.text(),j=JSON.parse(txt);
@@ -643,12 +704,13 @@ function bind(){
   el('bulkMaterialsCategories').onclick=()=>{setSelectedCategories(['bulkMaterials']);queueSaveSettings();};
   el('smallGoodsCategories').onclick=()=>{setSelectedCategories([...SMALL_GOODS_CATEGORIES]);queueSaveSettings();};
   el('allMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=true);queueSaveSettings();};
-  el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);queueSaveSettings();};
+  el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);ensureRouteMarketsSelected();queueSaveSettings();};
   el('scanBtn').onclick=()=>scan();
   el('stopBtn').onclick=()=>{state.stop=true;state.scanId++;el('stopBtn').disabled=true;el('scanBtn').disabled=false;};
   el('validateBtn').onclick=()=>enrichAllVolume(true);
   el('resultSearch').oninput=()=>{state.page=1;render();};
-  el('sortBy').onchange=()=>{state.page=1;render();};
+  el('sortBy').onchange=()=>{state.sortDirection=defaultSortDirection(el('sortBy').value);state.page=1;render();queueSaveSettings();};
+  ['startCity','destinationCity'].forEach(id=>{el(id).onchange=()=>{ensureRouteMarketsSelected();if(id==='destinationCity'&&el(id).value==='Black Market'&&el('mode').value==='relist')el('mode').value='instant';queueSaveSettings();};});
   if(el('bulkRiskProfile'))el('bulkRiskProfile').onchange=()=>{const map={safe:10,normal:20,aggressive:35,maximum:50};const v=map[el('bulkRiskProfile').value];if(v){el('bulkVolumeShare').value=String(v);state.page=1;render();queueSaveSettings();}};
   ['maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty'].forEach(id=>{const x=el(id);if(!x)return;x.oninput=()=>{if(id==='bulkVolumeShare'&&el('bulkRiskProfile'))el('bulkRiskProfile').value='custom';state.page=1;render();};x.onchange=()=>{if(id==='bulkVolumeShare'&&el('bulkRiskProfile'))el('bulkRiskProfile').value='custom';state.page=1;render();queueSaveSettings();};});
   if(el('bulkRunePreset'))el('bulkRunePreset').onclick=applyBulkPreset;
@@ -663,10 +725,10 @@ function bind(){
   el('dbImportFile').onchange=async e=>{try{if(e.target.files[0])await importDBFile(e.target.files[0]);setProgress(100,tr('Backup local.db zaimportowany.','local.db backup imported.'));}catch(err){alert(tr('Import nieudany: ','Import failed: ')+err.message);}e.target.value='';};
   el('loadCacheBtn').onclick=()=>loadCachedOpportunities();
   el('dbClearBtn').onclick=clearCache;
-  document.querySelectorAll('thead th[data-sort]').forEach(th=>th.onclick=()=>{const key=th.dataset.sort;if(['bulkProfit','profitVolume','profit','volume','buy','sell','reality'].includes(key)){el('sortBy').value=key;state.page=1;render();}});
+  document.querySelectorAll('thead th[data-sort]').forEach(th=>{th.tabIndex=0;th.setAttribute('role','button');th.onclick=()=>setSort(th.dataset.sort,true);th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setSort(th.dataset.sort,true);}};});
   document.querySelectorAll('input,select').forEach(x=>{if(!['resultSearch','dbImportFile'].includes(x.id))x.addEventListener('change',queueSaveSettings);});
   document.addEventListener('change',e=>{
-    if(e.target.classList?.contains('marketCheck'))queueSaveSettings();
+    if(e.target.classList?.contains('marketCheck')){ensureRouteMarketsSelected();queueSaveSettings();}
     if(e.target.classList?.contains('categoryGroupCheck')){const g=e.target.dataset.group;document.querySelectorAll(`.categoryLeafCheck[data-group="${g}"]`).forEach(x=>x.checked=e.target.checked);updateCategoryParents();updateCategorySummary();queueSaveSettings();}
     if(e.target.classList?.contains('categoryLeafCheck')){updateCategoryParents();updateCategorySummary();queueSaveSettings();}
   });
@@ -681,23 +743,22 @@ async function init(){
     await loadSettings();await updateDbInfo();
     setProgress(3,tr('Ładowanie bazy przedmiotów…','Loading item database…'));
     await loadItems();await loadCachedOpportunities();
-    setProgress(0,state.opportunities.length?tr('Gotowy — pokazano ostatni cache.','Ready — showing latest cache.'):tr('Gotowy — łączenie z API…','Ready — connecting to API…'));
+    setProgress(0,state.opportunities.length?tr('Gotowy — pokazano ostatni cache. Pierwszy skan tej sesji uruchom ręcznie.','Ready — showing the latest cache. Start the first scan of this session manually.'):tr('Gotowy — skonfiguruj skaner i uruchom pierwszy skan ręcznie.','Ready — configure the scanner and start the first scan manually.'));
     await pingApi();scheduleAuto();
-    if(el('autoStart').value==='yes'&&navigator.onLine)setTimeout(()=>scan({auto:true}).catch(e=>setProgress(0,tr('Błąd auto-skanu: ','Auto-scan error: ')+(e?.message||e))),700);
   }catch(e){
     console.error('Albion scanner init error',e);
     setDbStatus(tr('błąd','error'),false);
     if(el('dbStatus'))el('dbStatus').textContent=tr('błąd','error');
     setProgress(0,tr('Błąd inicjalizacji: ','Initialization error: ')+(e?.message||e));
   }
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.4.4').catch(()=>{});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.4.6').catch(()=>{});
   if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
 }
 function exportCsv(){
   const rows=filteredResults();if(!rows.length)return;
   const cols=['item_id','name','quality','mode','buy_market','buy_price','buy_price_timestamp_utc','sell_market','sell_price','sell_price_timestamp_utc','top_quote_profit_unit','market_reality_score','market_reality_grade','data_completeness_pct','buy_ref_7d','sell_ref_7d','buy_price_age_h','sell_price_age_h','historical_profit_unit','source_extreme_low_warning','best_source','best_destination','source_avg_7d_day','source_safe_day','destination_avg_7d_day','destination_safe_day','route_safe_day','target_market_share_pct','source_cap_units','destination_cap_units','suggested_take_units','planned_capital','bulk_tax_total','bulk_setup_total','bulk_transport_total','bulk_effective_profit_unit','estimated_sell_days','estimated_trip_profit','profit_x_route_scale_day'];
   const lines=[cols.join(';'),...rows.map(o=>{const v=o.volume||{},b=o.bulk||bulkPlanFor(o,cfgFromUI());return [o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),o.sourceDate||'',marketLabel(o.dest),Math.round(o.sell),o.destDate||'',Math.round(o.profit),o.reality?.score??'',o.reality?.grade??'',o.reality?.dataCompleteness??'',Number.isFinite(o.reality?.buyRef)?Math.round(o.reality.buyRef):'',Number.isFinite(o.reality?.sellRef)?Math.round(o.reality.sellRef):'',Number.isFinite(o.reality?.buyAge)?o.reality.buyAge.toFixed(2):'',Number.isFinite(o.reality?.sellAge)?o.reality.sellAge.toFixed(2):'',Number.isFinite(o.reality?.repeatableProfit)?Math.round(o.reality.repeatableProfit):'',o.priceGuard?.sourceWarning?'yes':'',o.bestSource?'yes':'',o.bestDestination?'yes':'',Number.isFinite(v.buyDaily)?v.buyDaily.toFixed(2):'',Number.isFinite(v.sourceSafeDaily)?v.sourceSafeDaily.toFixed(2):'',Number.isFinite(v.sellDaily)?v.sellDaily.toFixed(2):'',Number.isFinite(v.destinationSafeDaily)?v.destinationSafeDaily.toFixed(2):'',Number.isFinite(v.routeSafeDaily)?v.routeSafeDaily.toFixed(2):'',Math.round((b.volumeShare||0)*100),b.sourceCap??'',b.destinationCap??'',b.qty||0,Math.round(b.capital||0),Math.round(b.taxTotal||0),Math.round(b.setupTotal||0),Math.round(b.transportTotal||0),Number.isFinite(b.effectiveProfitUnit)?b.effectiveProfitUnit.toFixed(2):'',Number.isFinite(b.daysAtVolume)?b.daysAtVolume.toFixed(2):'',Math.round(b.totalProfit||0),Math.round(o.profitVolumeDaily||0)].map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(';');})];
-  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_4_4.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_4_6.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 init();
 })();
