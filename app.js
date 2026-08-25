@@ -47,6 +47,29 @@ const statKey = (itemId,city,quality) => `${itemId}|${city}|${quality}`;
 const median = a => {if(!a.length)return NaN;const b=[...a].sort((x,y)=>x-y),m=Math.floor(b.length/2);return b.length%2?b[m]:(b[m-1]+b[m])/2;};
 const mean = a => a.length?a.reduce((s,x)=>s+x,0)/a.length:NaN;
 
+// v5.3.2 — hard anti-anomaly guard. We still keep the highest REAL market price.
+// Example: 33 / 37 / 39 / 40 / 59 / 5,994,000 => 59 stays, 5,994,000 is rejected.
+function marketPriceGuard(rows,field){
+  const vals=(rows||[]).map(r=>+r?.[field]||0).filter(v=>v>0&&Number.isFinite(v));
+  if(vals.length<3)return{median:median(vals),mad:NaN,cap:Infinity,floor:0,count:vals.length,isOutlier:()=>false,isLowOutlier:()=>false};
+  const med=median(vals);
+  if(!(med>0))return{median:med,mad:NaN,cap:Infinity,floor:0,count:vals.length,isOutlier:()=>false,isLowOutlier:()=>false};
+  const mad=median(vals.map(v=>Math.abs(v-med)));
+  // Wide guard on purpose: ordinary city spreads remain untouched.
+  // A value must be many times above the peer median before we reject it.
+  const ratioCap=med*8;
+  const robustCap=med+(Number.isFinite(mad)?mad*15:0);
+  const cap=Math.max(ratioCap,robustCap),ratioFloor=med/8,robustFloor=Math.max(0,med-(Number.isFinite(mad)?mad*15:0)),floor=Math.min(ratioFloor,robustFloor||ratioFloor);
+  return{median:med,mad,cap,floor,count:vals.length,isOutlier:v=>Number.isFinite(+v)&&+v>cap,isLowOutlier:v=>Number.isFinite(+v)&&+v>0&&+v<floor};
+}
+function historyPriceOutlier(currentPrice,histMetrics,direction='high'){
+  const med=+histMetrics?.median||0;
+  if(!(currentPrice>0&&med>0))return false;
+  // History is a fallback / second guard. 10x leaves room for genuine shortages,
+  // while rejecting stale quotes both absurdly high and absurdly low.
+  return direction==='low'?currentPrice<med/10:currentPrice>med*10;
+}
+
 
 const tr = (pl,en) => state.lang==='en'?en:pl;
 const TEXT_PAIRS = {
@@ -284,16 +307,24 @@ function mergeRows(fresh,cached){const m=new Map();for(const r of cached||[])m.s
 
 function cfgFromUI(){return{maxBuyPrice:+el('maxBuyPrice')?.value||0,minProfit:+el('minProfit')?.value||0,minVolumeDay:+el('minVolumeDay')?.value||0,bulkBudget:Math.max(0,+el('bulkBudget')?.value||0),bulkVolumeShare:clamp(+el('bulkVolumeShare')?.value||20,1,100),bulkDays:Math.max(.25,+el('bulkDays')?.value||1),bulkMaxQty:Math.max(1,Math.floor(+el('bulkMaxQty')?.value||10000)),excludeSame:!!el('excludeSame')?.checked,tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0};}
 function calcMode(rowsByItem,itemMap,mode,cfg,diag){
-  const result=[],md=diag.modes[mode]={items:0,qualities:0,pairs:0,rejectSame:0,rejectNonPositive:0,acceptedPairs:0,signals:0};
+  const result=[],md=diag.modes[mode]={items:0,qualities:0,pairs:0,rejectSame:0,rejectNonPositive:0,rejectAnomaly:0,acceptedPairs:0,signals:0};
   for(const [itemId,rows] of rowsByItem){
     md.items++;
     const byQ=new Map();for(const r of rows){const q=+r.quality||1;if(!byQ.has(q))byQ.set(q,[]);byQ.get(q).push(r);}
     for(const qRows of byQ.values()){
       md.qualities++;
-      const buys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0);
-      const destinations=mode==='instant'
-        ?qRows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destPrice:+r.buy_price_max,_destDate:r.buy_price_max_date}))
-        :qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destDate:r.sell_price_min_date}));
+      const candidateBuys=qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0);
+      const sourceGuard=marketPriceGuard(candidateBuys,'sell_price_min');
+      const buys=candidateBuys.filter(r=>{const bad=sourceGuard.isLowOutlier(+r.sell_price_min);if(bad)md.rejectAnomaly++;return !bad;});
+      const candidateDestinations=mode==='instant'
+        ?qRows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destRawPrice:+r.buy_price_max,_destPrice:+r.buy_price_max,_destDate:r.buy_price_max_date}))
+        :qRows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destRawPrice:+r.sell_price_min,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destDate:r.sell_price_min_date}));
+      const guard=marketPriceGuard(candidateDestinations,'_destRawPrice');
+      const destinations=candidateDestinations.filter(r=>{
+        const bad=guard.isOutlier(r._destRawPrice);
+        if(bad)md.rejectAnomaly++;
+        return !bad;
+      });
       for(const b of buys){for(const d of destinations){
         md.pairs++;
         if(cfg.excludeSame&&b.city===d.city){md.rejectSame++;continue;}
@@ -303,7 +334,7 @@ function calcMode(rowsByItem,itemMap,mode,cfg,diag){
         const profit=gross-fees-buy-cfg.transport;
         if(!(profit>0)){md.rejectNonPositive++;continue;}
         const item=itemMap.get(itemId)||{id:itemId,name:itemId,namePl:itemId,nameEn:itemId};
-        result.push({schemaVersion:12,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,sourceDate:b.sell_price_min_date,destDate:d._destDate,mode,calculatedAt:now(),sourceRow:b,destRow:d});
+        result.push({schemaVersion:13,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,rawDestinationPrice:d._destRawPrice,profit,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,sourceDate:b.sell_price_min_date,destDate:d._destDate,mode,calculatedAt:now(),priceReference:{peerMedian:guard.median,peerCap:guard.cap,peerCount:guard.count,sourcePeerMedian:sourceGuard.median,sourcePeerFloor:sourceGuard.floor,sourcePeerCount:sourceGuard.count},sourceRow:b,destRow:d});
         md.acceptedPairs++;
       }}
     }
@@ -407,20 +438,25 @@ function attachSimpleVolume(o,cache,failedKeys=new Set()){
   const src7=sm?.volumes?.d7?.total??(srcRec?.confirmed?0:null),dst7=o.dest==='Black Market'?null:(dm?.volumes?.d7?.total??(dstRec?.confirmed?0:null));
   const src30=sm?.volumes?.d30?.total??(srcRec?.confirmed?0:null),dst30=o.dest==='Black Market'?null:(dm?.volumes?.d30?.total??(dstRec?.confirmed?0:null));
   const trade7=Number.isFinite(src7)&&Number.isFinite(dst7)?Math.min(src7,dst7):null,trade30=Number.isFinite(src30)&&Number.isFinite(dst30)?Math.min(src30,dst30):null;
-  o.volume={source:sm?.volumes||null,destination:dm?.volumes||null,buyDaily:buyDay,sellDaily:sellDay,effectiveDaily:tradeDay,trade7,trade30,profitVolumeDaily:Number.isFinite(tradeDay)?Math.max(0,o.profit)*tradeDay:0,sourceStatus:srcState,destinationStatus:dstState};
+  const destinationHistoryOutlier=o.dest!=='Black Market'&&historyPriceOutlier(o.sell,dm,'high');
+  const sourceHistoryOutlier=historyPriceOutlier(o.buy,sm,'low');
+  const historyOutlier=destinationHistoryOutlier||sourceHistoryOutlier;
+  o.priceGuard={...(o.priceReference||{}),historyMedian:dm?.median??null,sourceHistoryMedian:sm?.median??null,historyOutlier,destinationHistoryOutlier,sourceHistoryOutlier};
+  o.invalidPrice=historyOutlier;
+  o.volume={source:sm?.volumes||null,destination:dm?.volumes||null,buyDaily:buyDay,sellDaily:sellDay,effectiveDaily:tradeDay,trade7,trade30,profitVolumeDaily:historyOutlier?0:(Number.isFinite(tradeDay)?Math.max(0,o.profit)*tradeDay:0),sourceStatus:srcState,destinationStatus:dstState};
   o.profitVolumeDaily=o.volume.profitVolumeDaily;o.history={source:sm,destination:dm,points:srcRec?.data||[],basis:'AODP sell history; historical market activity, not current order-book depth'};return o;
 }
 async function enrichAllVolume(force=false){
   if(!state.opportunities.length)return;const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value];el('validateBtn').disabled=true;el('validateBtn').innerHTML=`<span class="spinner"></span>${tr('Wolumen…','Volume…')}`;
-  try{const result=await loadVolumeHistoriesForOpportunities(state.opportunities,qualities,force);state.volumeFailures=result.failedKeys;state.volumeStats={jobs:result.jobs,errors:result.errors};for(const o of state.opportunities)attachSimpleVolume(o,result.cache,result.failedKeys);await saveOpportunities(state.opportunities);state.page=1;render();await updateDbInfo();}finally{el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Odśwież wolumen','Refresh volume');}
+  try{const result=await loadVolumeHistoriesForOpportunities(state.opportunities,qualities,force);state.volumeFailures=result.failedKeys;state.volumeStats={jobs:result.jobs,errors:result.errors};for(const o of state.opportunities)attachSimpleVolume(o,result.cache,result.failedKeys);const before=state.opportunities.length;state.opportunities=state.opportunities.filter(o=>!o.invalidPrice);const removed=before-state.opportunities.length;if(state.scanDiagnostics)state.scanDiagnostics.historyPriceAnomalies=(state.scanDiagnostics.historyPriceAnomalies||0)+removed;await saveOpportunities(state.opportunities);state.page=1;render();await updateDbInfo();}finally{el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Odśwież wolumen','Refresh volume');}
 }
 
 function diagnosticTotals(){
-  const d=state.scanDiagnostics||{},m=Object.values(d.modes||{}),sum=k=>m.reduce((a,x)=>a+(x[k]||0),0);return{pairs:sum('pairs'),same:sum('rejectSame'),nonPositive:sum('rejectNonPositive'),accepted:sum('acceptedPairs'),signals:sum('signals')};
+  const d=state.scanDiagnostics||{},m=Object.values(d.modes||{}),sum=k=>m.reduce((a,x)=>a+(x[k]||0),0);return{pairs:sum('pairs'),same:sum('rejectSame'),nonPositive:sum('rejectNonPositive'),anomaly:sum('rejectAnomaly'),accepted:sum('acceptedPairs'),signals:sum('signals')};
 }
 function renderScanDiagnostics(){
   const d=state.scanDiagnostics;if(!d||!el('scanDiagnostics'))return;const t=diagnosticTotals(),shown=filteredResults().length;
-  const volErr=state.volumeStats?.errors||0,volJobs=state.volumeStats?.jobs||0;const msg=state.lang==='en'?`Selected ${fmt(d.selectedItems||0)} / matching ${fmt(d.matchingItems||0)} • API rows ${fmt(d.apiRows||0)} • item IDs with data ${fmt(d.itemsWithRows||0)} • pairs ${fmt(t.pairs)} • non-positive ${fmt(t.nonPositive)} • profitable routes ${fmt(state.opportunities.length)} • shown ${fmt(shown)} • volume batches ${fmt(volJobs)} • volume API errors ${fmt(volErr)}`:`Wybrano ${fmt(d.selectedItems||0)} z ${fmt(d.matchingItems||0)} pasujących • rekordy API ${fmt(d.apiRows||0)} • itemy z danymi ${fmt(d.itemsWithRows||0)} • pary ${fmt(t.pairs)} • niedodatnie ${fmt(t.nonPositive)} • zyskowne trasy ${fmt(state.opportunities.length)} • pokazane ${fmt(shown)} • partie wolumenu ${fmt(volJobs)} • błędy API wolumenu ${fmt(volErr)}`;
+  const volErr=state.volumeStats?.errors||0,volJobs=state.volumeStats?.jobs||0,histAnom=d.historyPriceAnomalies||0;const msg=state.lang==='en'?`Selected ${fmt(d.selectedItems||0)} / matching ${fmt(d.matchingItems||0)} • API rows ${fmt(d.apiRows||0)} • item IDs with data ${fmt(d.itemsWithRows||0)} • pairs ${fmt(t.pairs)} • price anomalies rejected ${fmt((t.anomaly||0)+histAnom)} • non-positive ${fmt(t.nonPositive)} • profitable routes ${fmt(state.opportunities.length)} • shown ${fmt(shown)} • volume batches ${fmt(volJobs)} • volume API errors ${fmt(volErr)}`:`Wybrano ${fmt(d.selectedItems||0)} z ${fmt(d.matchingItems||0)} pasujących • rekordy API ${fmt(d.apiRows||0)} • itemy z danymi ${fmt(d.itemsWithRows||0)} • pary ${fmt(t.pairs)} • odrzucone anomalie cen ${fmt((t.anomaly||0)+histAnom)} • niedodatnie ${fmt(t.nonPositive)} • zyskowne trasy ${fmt(state.opportunities.length)} • pokazane ${fmt(shown)} • partie wolumenu ${fmt(volJobs)} • błędy API wolumenu ${fmt(volErr)}`;
   el('scanDiagnostics').textContent=msg;
   if(el('kpiItemsMeta'))el('kpiItemsMeta').textContent=state.lang==='en'?`${fmt(d.apiRows||0)} API rows`:`${fmt(d.apiRows||0)} rekordów API`;
   if(!shown&&el('emptyState')){
@@ -501,7 +537,7 @@ function openDetail(o){
 }
 function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:parseHistoryTime(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML=`<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">${tr('Brak historii dla tego sygnału.','No history for this signal.')}</text>`;return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">${tr('30 dni','30 days')} • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">${tr('zakup','buy')} ${fmt(current)}</text>`;}
 function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','mode','buy_market','buy_price','sell_market','sell_price','net_profit_unit','buy_volume_day','sell_volume_day','trade_volume_day','trade_volume_7d','trade_volume_30d','profit_x_volume_day','planned_units','planned_capital','estimated_trip_profit'],lines=[cols.join(';'),...a.map(o=>[o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),marketLabel(o.dest),Math.round(o.sell),Math.round(o.profit),Number.isFinite(o.volume?.buyDaily)?o.volume.buyDaily.toFixed(2):'',Number.isFinite(o.volume?.sellDaily)?o.volume.sellDaily.toFixed(2):'',Number.isFinite(o.volume?.effectiveDaily)?o.volume.effectiveDaily.toFixed(2):'',Number.isFinite(o.volume?.trade7)?Math.round(o.volume.trade7):'',Number.isFinite(o.volume?.trade30)?Math.round(o.volume.trade30):'',Math.round(o.profitVolumeDaily||0),o.bulk?.qty||0,Math.round(o.bulk?.capital||0),Math.round(o.bulk?.totalProfit||0)].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_bulk_trade_v5_3.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
-async function loadCachedOpportunities(){let ops=await dbGetAll('opportunities');ops=ops.filter(x=>x.schemaVersion===12);if(!ops.length){await dbClear('opportunities');return false;}state.opportunities=ops;el('validateBtn').disabled=false;const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);render();return true;}
+async function loadCachedOpportunities(){let ops=await dbGetAll('opportunities');ops=ops.filter(x=>x.schemaVersion===13);if(!ops.length){await dbClear('opportunities');return false;}state.opportunities=ops;el('validateBtn').disabled=false;const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);render();return true;}
 async function exportDB(){const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`albion-local-db-v5_3-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 async function importDBFile(file){const txt=await file.text(),j=JSON.parse(txt);if(j?.format!=='albion-market-local-db'||!j.stores)throw new Error(tr('Nieprawidłowy backup','Invalid backup'));for(const s of DB_STORES){await dbClear(s);if(Array.isArray(j.stores[s]))await dbPutMany(s,j.stores[s]);}state.watched=new Set((await dbGetAll('watchlist')).map(x=>x.itemId));setItems(await dbGetAll('items'));await loadSettings();await loadCachedOpportunities();await updateDbInfo();}
 async function clearCache(){if(!confirm(tr('Wyczyścić ceny, historię wolumenu i zapisane okazje? Baza przedmiotów i ustawienia zostaną.','Clear prices, volume history and saved opportunities? Item database and settings will remain.')))return;for(const s of ['prices','history','opportunities','scan_runs'])await dbClear(s);state.opportunities=[];state.history.clear();state.volumeFailures.clear();render();await updateDbInfo();setProgress(0,tr('Lokalny cache cen i wolumenu wyczyszczony.','Local price and volume cache cleared.'));}

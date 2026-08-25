@@ -1,8 +1,8 @@
-# Albion Europe Market Scanner v5.3.1 — Hurt / Mamut
+# Albion Europe Market Scanner v5.3.2 — Hurt / Mamut
 
 Statyczna aplikacja PWA przygotowana pod GitHub Pages. Rdzeń pozostaje prosty: **cena + wolumen**.
 
-## Co robi v5.3.1
+## Co robi v5.3.2
 
 - porównuje ceny między marketami Europe,
 - liczy zysk netto po tax/setup fee i opcjonalnym koszcie transportu,
@@ -45,7 +45,7 @@ Publiczny endpoint cen pokazuje najlepsze poziomy cen, ale nie pełną liczbę s
 Wrzuć zawartość katalogu do repozytorium i włącz Pages dla `main / root`.
 
 
-## Full Scan v5.3.1
+## Full Scan v5.3.2
 
 - `Limit przedmiotów = 0` oznacza wszystkie przedmioty pasujące do kategorii/Tier/Enchant.
 - Nie ma już domyślnego limitu 500 ani maksymalnego limitu 2500.
