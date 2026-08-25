@@ -1,61 +1,43 @@
-# Volume Model v5.2
+# Volume Model v5.2.4 — prosty model
+
+## Źródło
+
+Historia AODP, `time-scale=24`, zakres około 32 dni. Model wykorzystuje 30 pełnych dni i nie zawyża średniej dniem bieżącym.
 
 ## Okna
 
-Model pobiera dzienną historię AODP i buduje 30 pełnych dni kalendarzowych. Bieżący niepełny dzień jest przechowywany osobno i nie zawyża średnich pełnodniowych.
+Dla każdego rynku i jakości powstają wartości:
 
-Dla każdego okna N:
+- 1 dzień,
+- 3 dni,
+- 7 dni,
+- 14 dni,
+- 30 dni.
 
-`total_N = suma item_count z N pełnych dni`
+Brak dnia w historii = `0` sztuk.
 
-`avg_N = total_N / N`
+## Wartości pokazywane użytkownikowi
 
-`active_ratio_N = dni z volume > 0 / N`
+Dla zwykłej trasy:
 
-## Regularity
+`buyVolumeDay = source.avg7`
 
-`regularity = 0.65 × active_ratio_30 + 0.35 × active_ratio_7`
+`sellVolumeDay = destination.avg7`
 
-wynik jest skalowany do 0–100.
+`tradeVolumeDay = min(source.avg7, destination.avg7)`
 
-## Trend
+`tradeVolume7 = min(source.total7, destination.total7)`
 
-`trend = avg_3 / avg_14 - 1`
+`tradeVolume30 = min(source.total30, destination.total30)`
 
-## Liquidity Score
+## Ranking
 
-W przybliżeniu:
+Domyślnie:
 
-`Liquidity = 54% volume scale + 28% regularity + 12% stability + 6% trend`
+`profitVolumeDaily = netProfitPerUnit × tradeVolumeDay`
 
-Skala wolumenu jest logarytmiczna, dzięki czemu bardzo duże rynki nie dominują liniowo nad wszystkimi pozostałymi.
+Nie jest to prognoza gwarantowanego zarobku. To proste zestawienie ceny z historycznym obrotem.
 
-## Effective daily volume
+## Ograniczenie danych
 
-Relist:
-
-`min(source avg7, destination avg7)`
-
-Instant:
-
-`min(source avg7, destination avg7) × 0.62`
-
-Dla instant destination history jest proxy płynności, nie głębokością buy orderu.
-
-## Ilość
-
-Model wyprowadza ostrożną dzienną przepustowość z efektywnego wolumenu, Confidence i regularności, a następnie trzy poziomy:
-
-- Safe ≈ 18% przepustowości,
-- Normal ≈ 38%,
-- Aggressive ≈ 70%.
-
-Dodatkowe współczynniki obniżają rekomendację dla typów transakcji o większej niepewności wykonania.
-
-## Profit/day
-
-`profitPerDayNominal = profitPerUnit × estimatedDailyCapacity`
-
-`profitPerDayModel = profitPerDayNominal × Confidence / 100`
-
-To metryka heurystyczna do rankingu, a nie gwarantowany dzienny zarobek.
+Historia AODP jest historią sell-side. W szczególności nie jest pełną głębokością aktualnego buy orderu. Dla Black Market nie tworzymy sztucznego docelowego wolumenu.
