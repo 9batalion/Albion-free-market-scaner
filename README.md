@@ -1,120 +1,64 @@
-# Albion Europe Market Scanner v5.2.1 — Diagnostics & Balanced Scan
+# Albion Europe Market Scanner v5.2.3 — Cena × Wolumen
 
-Poprawka po audycie zgłoszenia „0 okazji przy 500 przeskanowanych itemach”.
+Wersja pod GitHub Pages/PWA uproszczona zgodnie z założeniem: **główne kryteria wyszukiwania to tylko cena i wolumen**.
 
-Najważniejsze zmiany:
-- zbalansowany dobór limitu itemów między kategoriami i tierami T4–T8,
-- usunięcie błędnego preferowania wysokich tierów i enchantów przy limicie 500,
-- licznik realnych rekordów API, itemów z danymi i powodów odrzucania par,
-- diagnostyka: stale / niski zysk / niskie ROI / sygnały / wyniki po filtrach,
-- poprawione zerowanie opisu starego portfela,
-- odświeżony cache PWA.
+## Jak działa wyszukiwanie
 
-# Albion Europe Market Scanner v5.2 — Volume & Liquidity Intelligence
+1. **Cena** — skaner porównuje ceny między marketami i zachowuje trasy z dodatnim zyskiem netto po podatku, setup fee i koszcie transportu.
+2. **Wolumen** — dla najlepszych cenowo kandydatów pobierana jest historia 30 dni i wyliczany jest estymowany wolumen dzienny.
 
-Statyczna aplikacja PWA pod GitHub Pages. Łączy się bezpośrednio z europejskim API Albion Online Data Project i zapisuje dane lokalnie w IndexedDB.
+Pozostałe wskaźniki, takie jak ROI, Confidence, świeżość, Liquidity Score, czas wyjścia i anomalie, są nadal pokazywane, ale **nie usuwają okazji z wyników**.
 
-## Najważniejsza zmiana w v5.2
+## Filtry wyników
 
-Wolumen i płynność są teraz pełnoprawną częścią modelu okazji oraz Portfolio Optimizer.
+Są tylko dwa podstawowe pola:
 
-Aplikacja pobiera do ok. 32 dni dziennej historii AODP (`time-scale=24`) i wylicza wolumen dla pełnych okien:
+- **Min. zysk netto / szt. (cena)**
+- **Min. wolumen / dzień**
 
-- 1 dzień,
-- 3 dni,
-- 7 dni,
-- 14 dni,
-- 30 dni.
+Presety:
 
-Brak rekordu danego dnia jest traktowany jako 0, dzięki czemu średnia dzienna nie jest zawyżana tylko przez aktywne dni.
+- **Wszystkie dodatnie** — pokazuje każdą trasę z dodatnim zyskiem,
+- **Tylko z wolumenem** — wymaga wolumenu > 0,
+- **Aktywny handel** — min. 5 szt./dzień,
+- **Wyższa cena** — min. 1000 silver zysku/szt.
 
-## Nowe metryki
+## Sortowanie
 
-Dla przeanalizowanej okazji wyliczane są:
+Domyślne sortowanie to **Cena × Wolumen**. Dodatkowo można sortować po zysku, ROI, wolumenie, Profit/day, Confidence, świeżości, Liquidity Score itd. Są to kryteria sortowania, nie twarde filtry.
 
-- `Volume/day` — efektywny dzienny wolumen używany przez model,
-- `Liquidity Score 0–100`,
-- regularność handlu,
-- trend wolumenu,
-- stabilność wolumenu,
-- `Safe Qty`,
-- `Normal Qty`,
-- `Aggressive Qty`,
-- szacowany czas wyjścia z pozycji,
-- nominalny `Profit/day`,
-- `Model Profit/day` ważony Confidence Score.
+## Ranking Cena × Wolumen
 
-## Jak liczony jest wolumen
+Po analizie wolumenu wynik jest liczony jako:
 
-Historia AODP dotyczy sell history. Dlatego:
+- 58% — wynik cenowy (zysk jednostkowy + ROI),
+- 42% — wolumen dzienny.
 
-- dla relistingu wykorzystywana jest płynność źródła i celu, a ograniczeniem jest słabszy z dwóch rynków;
-- dla sprzedaży natychmiastowej wolumen celu jest wyłącznie proxy ogólnej płynności rynku — nie oznacza głębokości aktualnego buy orderu;
-- dla Black Market używany jest ostrożny współczynnik oparty na rynku źródłowym.
+Przed analizą wolumenu kandydat pozostaje widoczny i jest oceniany tylko wstępnie na podstawie ceny.
 
-Publiczne AODP nie udostępnia pełnej aktualnej głębokości order booka, dlatego rekomendowana liczba sztuk jest estymacją.
+## Wolumen
 
-## Liquidity Score
+Wolumen jest liczony z historii AODP z pełnych okien 1/3/7/14/30 dni. Dni bez sprzedaży są traktowane jako 0.
 
-Score uwzględnia:
+Dla natychmiastowej sprzedaży wolumen rynku docelowego jest tylko wskaźnikiem płynności rynku — publiczne AODP nie podaje pełnej głębokości aktualnego buy orderu.
 
-- średni wolumen 7 dni,
-- udział aktywnych dni,
-- stabilność wolumenu,
-- trend 3 dni względem 14 dni.
+## Portfolio
 
-Wysoki pojedynczy dzień nie wystarcza do uzyskania wysokiej oceny.
+Portfolio nie wymaga już minimalnego Confidence. Dobór pozycji opiera się przede wszystkim na:
 
-## Opportunity Score
+- zysku/cenie,
+- wolumenie,
+- budżecie,
+- limicie na przedmiot,
+- limicie na trasę,
+- estymowanej liczbie sztuk wynikającej z wolumenu.
 
-Po analizie historii Liquidity Score ma dużą wagę w Opportunity Score:
+Confidence pozostaje informacją pomocniczą.
 
-- Conservative: 30% płynność,
-- Balanced: 25% płynność,
-- Aggressive: 24% płynność.
+## Analiza wolumenu
 
-Pozostałe składniki to Confidence, zysk/ROI i ocena wartości ceny.
-
-## Portfolio Optimizer v5.2
-
-Portfolio wykorzystuje teraz rekomendacje Safe / Normal / Aggressive zależnie od profilu ryzyka oraz ustawionego horyzontu płynności.
-
-Pozycja bez sensownego limitu wolumenowego nie jest dodawana do portfela.
-
-Priorytet pozycji uwzględnia również `Model Profit/day`, aby premiować szybszy obrót kapitału zamiast samego wysokiego ROI.
-
-## Filtry wolumenu
-
-W UI można ustawić:
-
-- minimalny wolumen / dzień,
-- minimalny wolumen 7 dni,
-- minimalny Liquidity Score,
-- maksymalny czas wyjścia,
-- wymóg wykonania analizy wolumenu.
-
-Można też sortować wyniki według wolumenu, płynności, czasu wyjścia i Model Profit/day.
-
-## IndexedDB
-
-Baza `albion_europe_market_local_db` ma wersję 7. Dotychczasowe magazyny danych pozostają, a cache historii zawiera teraz 32-dniowy zakres używany do obliczeń 30-dniowych.
+Domyślna opcja: **top 50 wg ceny**. Dostępne są też 0 / 30 / 50 / 80 kandydatów.
 
 ## GitHub Pages
 
-Wrzuć zawartość katalogu do repozytorium i włącz:
-
-`Settings → Pages → Deploy from a branch → main / (root)`
-
-Pliki wymagane do działania:
-
-- `index.html`
-- `app.js`
-- `service-worker.js`
-- `manifest.webmanifest`
-- `offline.html`
-- `icon.svg`
-- `.nojekyll`
-
-## Ważne ograniczenie
-
-Wolumen historyczny opisuje wykonany handel historyczny. Nie gwarantuje, że aktualny order istnieje ani że po aktualnie widocznej cenie dostępna jest rekomendowana liczba sztuk. Większe transakcje warto zweryfikować w grze.
+Pliki można umieścić w repozytorium i opublikować przez GitHub Pages. IndexedDB działa lokalnie w przeglądarce użytkownika.

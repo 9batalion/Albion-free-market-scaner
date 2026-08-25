@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Albion Europe Market Scanner v5.2.1.1 — Diagnostics & Balanced Scan</title>
+  <title>Albion Europe Market Scanner v5.2.3 — Cena × Wolumen</title>
   <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -12,11 +12,12 @@
     *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 10% 0,#1a2331 0,#0b0e13 35%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}
     button,input,select{font:inherit}.app{max-width:1680px;margin:auto;padding:18px}.topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}.brand h1{font-size:24px;margin:0 0 4px}.brand p{margin:0;color:var(--muted);font-size:13px}.status{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.pill{border:1px solid var(--line);background:#0e141e;border-radius:999px;padding:6px 10px;font-size:12px;color:var(--muted)}.pill b{color:var(--text)}.status select{background:#0e141e;color:var(--text);border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:12px;outline:none}
     .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}.panel{background:linear-gradient(180deg,rgba(23,31,44,.96),rgba(14,19,28,.96));border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}.controls{padding:14px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}.section{border-bottom:1px solid var(--line);padding:10px 0 14px}.section:last-child{border-bottom:0}.section h3{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#c7d2df;margin:0 0 10px}.field{margin:8px 0}.field label{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:12px;margin-bottom:5px}.field input,.field select{width:100%;background:#0b111a;color:var(--text);border:1px solid #2d3b50;border-radius:9px;padding:9px 10px;outline:none}.field input:focus,.field select:focus{border-color:var(--accent)}.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px}.check{display:flex;align-items:center;gap:7px;background:#0d131c;border:1px solid #222f40;border-radius:8px;padding:7px 8px;font-size:12px;color:#ced8e4}.check input{accent-color:var(--accent)}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.btn{border:1px solid #35465e;border-radius:9px;background:#182334;color:white;padding:10px 12px;cursor:pointer}.btn:hover{filter:brightness(1.12)}.btn.primary{background:linear-gradient(180deg,#dfb85f,#b9892d);border-color:#e1bd6b;color:#15110a;font-weight:800}.btn.danger{background:#32181b;border-color:#603036}.btn:disabled{opacity:.5;cursor:not-allowed}.tiny{font-size:11px;color:var(--muted);line-height:1.45}.progress{height:7px;background:#0b1118;border-radius:99px;overflow:hidden;border:1px solid #243044;margin-top:9px}.progress>div{height:100%;width:0;background:linear-gradient(90deg,#b4852f,#f2d083);transition:width .2s}
-    .main{min-width:0}.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:12px}.kpi{padding:13px}.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi strong{display:block;font-size:21px;margin-top:5px}.kpi small{display:block;color:var(--muted);margin-top:2px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px}.toolbar input,.toolbar select{background:#0b111a;border:1px solid #2b394d;color:white;border-radius:8px;padding:8px 9px}.toolbar .grow{flex:1;min-width:220px}.table-wrap{overflow:auto;max-height:calc(100vh - 215px);border-top:1px solid var(--line)}table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:1900px}thead th{position:sticky;top:0;z-index:3;background:#121a26;color:#aebbd0;text-align:left;padding:9px 8px;border-bottom:1px solid #334259;white-space:nowrap;cursor:pointer}tbody td{padding:8px;border-bottom:1px solid #1e2938;vertical-align:middle}tbody tr:hover{background:#151e2a}.itemcell{display:flex;align-items:center;gap:8px;min-width:270px}.itemcell img{width:38px;height:38px;object-fit:contain;background:#0b1118;border-radius:7px;border:1px solid #253246}.itemname{font-weight:700}.itemid{color:var(--muted);font-size:10px;max-width:230px;overflow:hidden;text-overflow:ellipsis}.profit{color:var(--good);font-weight:800}.loss{color:var(--bad)}.route{white-space:nowrap}.route b{color:#f2d083}.muted{color:var(--muted)}.fresh{color:var(--good)}.stale{color:var(--warn)}.old{color:var(--bad)}.tag{display:inline-block;padding:3px 6px;border-radius:999px;border:1px solid #38475c;font-size:10px;color:#c7d2df;background:#111923;margin:1px}.tag.good{border-color:#265c3d;color:#78e3a0;background:#102018}.tag.warn{border-color:#66521d;color:#ffd36d;background:#241e0d}.tag.bad{border-color:#6c2b2b;color:#ff9292;background:#241112}.tag.info{border-color:#285071;color:#8fd0ff;background:#0d1d2a}.scorebar{width:76px;height:6px;border-radius:99px;background:#202a38;overflow:hidden;margin-top:3px}.scorebar>i{display:block;height:100%;background:linear-gradient(90deg,#ff6b6b,#ffc857,#49d17d)}.modelbox{display:flex;flex-wrap:wrap;gap:3px}.breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.breakdown .detail-card b{font-size:15px}.star{background:none;border:0;color:#78889d;font-size:19px;cursor:pointer;padding:0}.star.on{color:#ffd260}.empty{padding:46px 20px;text-align:center;color:var(--muted)}
+    .main{min-width:0}.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;margin-bottom:12px}.kpi{padding:13px}.kpi span{font-size:11px;color:var(--muted);text-transform:uppercase}.kpi strong{display:block;font-size:21px;margin-top:5px}.kpi small{display:block;color:var(--muted);margin-top:2px}.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px}.result-filters{padding:12px;border-bottom:1px solid var(--line);background:#0e151f}.result-filter-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}.result-filter-head b{font-size:13px}.result-filter-head span{font-size:11px;color:var(--muted)}.result-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:8px}.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}.preset-row .btn{padding:7px 9px;font-size:11px}.preset-row .btn.active{border-color:#e1bd6b;color:#f5d57e;background:#2b2416}.result-filters .check{margin-top:8px}.filter-note{font-size:10px;color:var(--muted);line-height:1.4;margin-top:8px}.toolbar input,.toolbar select{background:#0b111a;border:1px solid #2b394d;color:white;border-radius:8px;padding:8px 9px}.toolbar .grow{flex:1;min-width:220px}.table-wrap{overflow:auto;max-height:calc(100vh - 215px);border-top:1px solid var(--line)}table{border-collapse:separate;border-spacing:0;width:100%;font-size:12px;min-width:1900px}thead th{position:sticky;top:0;z-index:3;background:#121a26;color:#aebbd0;text-align:left;padding:9px 8px;border-bottom:1px solid #334259;white-space:nowrap;cursor:pointer}tbody td{padding:8px;border-bottom:1px solid #1e2938;vertical-align:middle}tbody tr:hover{background:#151e2a}.itemcell{display:flex;align-items:center;gap:8px;min-width:270px}.itemcell img{width:38px;height:38px;object-fit:contain;background:#0b1118;border-radius:7px;border:1px solid #253246}.itemname{font-weight:700}.itemid{color:var(--muted);font-size:10px;max-width:230px;overflow:hidden;text-overflow:ellipsis}.profit{color:var(--good);font-weight:800}.loss{color:var(--bad)}.route{white-space:nowrap}.route b{color:#f2d083}.muted{color:var(--muted)}.fresh{color:var(--good)}.stale{color:var(--warn)}.old{color:var(--bad)}.tag{display:inline-block;padding:3px 6px;border-radius:999px;border:1px solid #38475c;font-size:10px;color:#c7d2df;background:#111923;margin:1px}.tag.good{border-color:#265c3d;color:#78e3a0;background:#102018}.tag.warn{border-color:#66521d;color:#ffd36d;background:#241e0d}.tag.bad{border-color:#6c2b2b;color:#ff9292;background:#241112}.tag.info{border-color:#285071;color:#8fd0ff;background:#0d1d2a}.scorebar{width:76px;height:6px;border-radius:99px;background:#202a38;overflow:hidden;margin-top:3px}.scorebar>i{display:block;height:100%;background:linear-gradient(90deg,#ff6b6b,#ffc857,#49d17d)}.modelbox{display:flex;flex-wrap:wrap;gap:3px}.breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.breakdown .detail-card b{font-size:15px}.star{background:none;border:0;color:#78889d;font-size:19px;cursor:pointer;padding:0}.star.on{color:#ffd260}.empty{padding:46px 20px;text-align:center;color:var(--muted)}
     .portfolio-panel{margin-bottom:12px;overflow:hidden}.portfolio-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}.portfolio-head h2{font-size:15px;margin:0}.portfolio-head p{font-size:11px;color:var(--muted);margin:3px 0 0}.portfolio-state{font-size:11px;color:var(--muted)}.portfolio-kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:10px 12px}.portfolio-kpi{background:#0d141e;border:1px solid #26354a;border-radius:9px;padding:9px}.portfolio-kpi small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase}.portfolio-kpi b{display:block;margin-top:4px;font-size:16px}.portfolio-table{min-width:1320px}.portfolio-table .qty{font-weight:800;color:#f2d083}.portfolio-reason{max-width:270px;color:#aebbd0;line-height:1.35}.portfolio-note{padding:9px 12px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);line-height:1.45}.portfolio-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px}.budget-good{color:var(--good)}.budget-warn{color:var(--warn)}
     dialog{width:min(920px,94vw);border:1px solid #3a4a61;border-radius:14px;background:#101722;color:var(--text);padding:0;box-shadow:0 30px 100px rgba(0,0,0,.65)}dialog::backdrop{background:rgba(0,0,0,.72)}.modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px;border-bottom:1px solid var(--line)}.modal-body{padding:14px}.close{background:#202c3d;border:1px solid #40506a;color:white;border-radius:7px;padding:6px 10px;cursor:pointer}.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.detail-card{padding:10px;background:#0b1119;border:1px solid #28364a;border-radius:9px}.detail-card small{color:var(--muted)}.detail-card b{display:block;font-size:16px;margin-top:4px}.chart{width:100%;height:220px;border:1px solid #29384c;border-radius:10px;background:#0a0f17}.note{border-left:3px solid var(--accent);background:#171a18;padding:10px 12px;border-radius:6px;color:#cbd5e1;font-size:12px;line-height:1.5}.category-picker{border:1px solid #29384c;border-radius:10px;background:#0c121b;overflow:hidden}.category-picker summary{cursor:pointer;padding:9px 10px;font-size:12px;font-weight:700;color:#d6dfeb;display:flex;justify-content:space-between;gap:8px;align-items:center}.category-tools{padding:0 9px 8px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.category-tools .btn{padding:7px 6px;font-size:11px}.category-groups{padding:0 9px 9px;display:grid;gap:7px}.category-group{border:1px solid #223044;border-radius:8px;overflow:hidden}.category-parent{display:flex;align-items:center;gap:7px;padding:7px 8px;background:#111a26;font-size:12px;font-weight:700}.category-children{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:7px}.category-leaf{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 6px;border-radius:6px;background:#0b1119;color:#cbd5e1;font-size:11px}.category-leaf span:first-of-type{flex:1}.cat-count{color:#708198;font-size:10px}.category-picker input{accent-color:var(--accent)}.spinner{display:inline-block;width:11px;height:11px;border:2px solid #52647b;border-top-color:#f0c96d;border-radius:50%;animation:spin .8s linear infinite;vertical-align:-1px;margin-right:5px}@keyframes spin{to{transform:rotate(360deg)}}
-    @media(max-width:1050px){.grid{grid-template-columns:1fr}.controls{position:static;max-height:none}.kpis{grid-template-columns:repeat(2,1fr)}.portfolio-kpis{grid-template-columns:repeat(3,1fr)}.table-wrap{max-height:none}}@media(max-width:650px){.category-children{grid-template-columns:1fr}.app{padding:10px}.topbar{flex-direction:column}.status{justify-content:flex-start}.kpis{grid-template-columns:1fr 1fr}.portfolio-kpis{grid-template-columns:1fr 1fr}.portfolio-head{align-items:flex-start;flex-direction:column}.checks{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr 1fr}.breakdown{grid-template-columns:1fr 1fr}}
-  </style>
+    @media(max-width:1050px){.result-filter-grid{grid-template-columns:repeat(2,minmax(120px,1fr))}.grid{grid-template-columns:1fr}.controls{position:static;max-height:none}.kpis{grid-template-columns:repeat(2,1fr)}.portfolio-kpis{grid-template-columns:repeat(3,1fr)}.table-wrap{max-height:none}}@media(max-width:650px){.result-filter-grid{grid-template-columns:1fr 1fr}.category-children{grid-template-columns:1fr}.app{padding:10px}.topbar{flex-direction:column}.status{justify-content:flex-start}.kpis{grid-template-columns:1fr 1fr}.portfolio-kpis{grid-template-columns:1fr 1fr}.portfolio-head{align-items:flex-start;flex-direction:column}.checks{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr 1fr}.breakdown{grid-template-columns:1fr 1fr}}
+  .result-filter-grid.simple-two{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:700px){.result-filter-grid.simple-two{grid-template-columns:1fr}}
+</style>
   <meta name="theme-color" content="#0b0e13" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
@@ -25,8 +26,8 @@
 <div class="app">
   <div class="topbar">
     <div class="brand">
-      <h1>Albion Europe Market Scanner v5.2.1 — Volume Intelligence</h1>
-      <p>Market Intelligence • Europe • AODP API • Volume 1/3/7/14/30d • Liquidity Score • Portfolio Optimizer • PL/EN • IndexedDB • GitHub Pages / PWA</p>
+      <h1>Albion Europe Market Scanner v5.2.3 — Cena × Wolumen</h1>
+      <p>Market Intelligence • Europe • AODP API • Cena × Wolumen • Volume 1/3/7/14/30d • Portfolio Optimizer • PL/EN • IndexedDB • GitHub Pages / PWA</p>
     </div>
     <div class="status">
       <select id="languageSelect" aria-label="Język / Language"><option value="pl" selected>Polski</option><option value="en">English</option></select>
@@ -49,7 +50,7 @@
           <div class="field"><label>Jakość</label><select id="quality"><option value="1">Normal</option><option value="2">Good</option><option value="3">Outstanding</option><option value="4">Excellent</option><option value="5">Masterpiece</option><option value="all">Wszystkie</option></select></div>
           <div class="field"><label>Limit przedmiotów</label><input id="scanLimit" type="number" min="10" max="2500" step="10" value="500"></div>
         </div>
-        <div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Limit jest łączny dla wszystkich zaznaczonych kategorii; v5.2.1 dobiera go równomiernie między kategoriami i tierami zamiast preferować głównie drogie T8/enchant.</div>
+        <div class="tiny">Przy pustym wyszukiwaniu skaner wybiera handlowalne T4–T8. Limit jest łączny dla wszystkich zaznaczonych kategorii; v5.2.3 dobiera go równomiernie między kategoriami i tierami zamiast preferować głównie drogie T8/enchant.</div>
       </div>
 
       <div class="section">
@@ -77,7 +78,7 @@
         <div class="field"><label>Tryb</label><select id="mode"><option value="smart" selected>Smart Scan — wszystkie modele</option><option value="instant">Natychmiast: sell → buy order</option><option value="relist">Transport + wystawienie sell orderu</option></select></div>
         <div class="row2">
           <div class="field"><label>Profil ryzyka</label><select id="riskProfile"><option value="conservative">Konserwatywny</option><option value="balanced" selected>Zbalansowany</option><option value="aggressive">Agresywny</option></select></div>
-          <div class="field"><label>Analiza historii</label><select id="analysisDepth"><option value="0">Szybka — bez historii</option><option value="12">Standard — top 12</option><option value="30" selected>Zaawansowana — top 30</option><option value="50">Głęboka — top 50</option></select></div>
+          <div class="field"><label>Analiza wolumenu</label><select id="analysisDepth"><option value="0">Szybka — bez wolumenu</option><option value="30">Standard — top 30 wg ceny</option><option value="50" selected>Dokładna — top 50 wg ceny</option><option value="80">Głęboka — top 80 wg ceny</option></select></div>
         </div>
         <div class="row2">
           <div class="field"><label>Premium</label><select id="premium"><option value="yes">Tak (tax 4%)</option><option value="no">Nie (tax 8%)</option></select></div>
@@ -91,32 +92,9 @@
       </div>
 
       <div class="section">
-        <h3>Filtry okazji</h3>
-        <div class="row2">
-          <div class="field"><label>Min. zysk / szt.</label><input id="minProfit" type="number" min="0" step="100" value="1000"></div>
-          <div class="field"><label>Min. ROI %</label><input id="minRoi" type="number" min="0" step="1" value="5"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Maks. wiek ceny (h)</label><input id="maxAge" type="number" min="1" max="720" value="24"></div>
-          <div class="field"><label>Min. cena zakupu</label><input id="minBuy" type="number" min="0" step="100" value="100"></div>
-        </div>
-        <div class="field"><label>Min. Confidence Score</label><input id="minConfidence" type="number" min="0" max="100" step="1" value="35"></div>
+        <h3>Warunki skanu</h3>
         <label class="check"><input id="excludeSame" type="checkbox" checked> Wyklucz ten sam market</label>
-        <label class="check"><input id="onlyFreshBoth" type="checkbox" checked> Obie ceny muszą być świeże</label>
-      </div>
-
-      <div class="section">
-        <h3>Wolumen i płynność</h3>
-        <div class="row2">
-          <div class="field"><label>Min. wolumen / dzień</label><input id="minVolumeDay" type="number" min="0" step="0.1" value="0"></div>
-          <div class="field"><label>Min. wolumen 7 dni</label><input id="minVolume7" type="number" min="0" step="1" value="0"></div>
-        </div>
-        <div class="row2">
-          <div class="field"><label>Min. Liquidity Score</label><input id="minLiquidityScore" type="number" min="0" max="100" step="1" value="0"></div>
-          <div class="field"><label>Maks. czas wyjścia (dni)</label><input id="maxExitDays" type="number" min="0.1" max="90" step="0.1" value="30"></div>
-        </div>
-        <label class="check"><input id="requireVolume" type="checkbox"> Tylko po analizie wolumenu</label>
-        <div class="tiny">Wolumen pochodzi z historycznych sell orders AODP. Dla natychmiastowej sprzedaży wolumen rynku docelowego jest wskaźnikiem płynności rynku, a nie głębokością aktualnego buy orderu.</div>
+        <div class="tiny" style="margin-top:8px">v5.2.3 wykrywa okazje na podstawie dwóch rzeczy: dodatniej różnicy ceny po opłatach oraz wolumenu. Pozostałe wskaźniki są tylko informacją i sortowaniem.</div>
       </div>
 
       <div class="section">
@@ -133,13 +111,10 @@
           <div class="field"><label>Maks. pozycji</label><input id="portfolioMaxPositions" type="number" min="1" max="50" step="1" value="12"></div>
           <div class="field"><label>Maks. sztuk / pozycję</label><input id="portfolioMaxUnits" type="number" min="1" max="500" step="1" value="25"></div>
         </div>
-        <div class="row2">
-          <div class="field"><label>Min. confidence portfela</label><input id="portfolioMinConfidence" type="number" min="0" max="100" step="1" value="55"></div>
-          <div class="field"><label>Horyzont płynności</label><select id="portfolioLiquidityDays"><option value="0.25">6 godzin</option><option value="0.5">12 godzin</option><option value="1" selected>1 dzień</option><option value="2">2 dni</option><option value="3">3 dni</option></select></div>
-        </div>
+        <div class="field"><label>Horyzont wolumenu portfela</label><select id="portfolioLiquidityDays"><option value="0.25">6 godzin</option><option value="0.5">12 godzin</option><option value="1" selected>1 dzień</option><option value="2">2 dni</option><option value="3">3 dni</option></select></div>
         <label class="check"><input id="autoPortfolio" type="checkbox" checked> Automatycznie przebuduj portfel po skanie</label>
         <div class="actions"><button class="btn primary" id="portfolioBtn">Zbuduj portfel</button><button class="btn" id="portfolioExportBtn" disabled>Eksport portfela</button></div>
-        <div class="tiny">Liczba sztuk jest estymacją opartą na historii wolumenu i jakości danych. Publiczne AODP nie udostępnia pełnej głębokości aktualnego order booka, dlatego większe pozycje wymagają weryfikacji w grze.</div>
+        <div class="tiny">Liczba sztuk jest estymacją opartą głównie na wolumenie historycznym. Publiczne AODP nie udostępnia pełnej głębokości aktualnego order booka, dlatego większe pozycje wymagają weryfikacji w grze.</div>
       </div>
 
       <div class="section">
@@ -165,7 +140,7 @@
       <div class="progress"><div id="progressBar"></div></div>
       <div class="tiny" id="progressText" style="margin-top:6px">Gotowy.</div><div class="tiny" id="scanDiagnostics" style="margin-top:7px;padding:8px;border:1px solid #263244;border-radius:8px;background:#0b1119">Diagnostyka skanu: —</div>
       <div class="actions">
-        <button class="btn" id="validateBtn" disabled>Przelicz modele historii</button>
+        <button class="btn" id="validateBtn" disabled>Przelicz wolumen</button>
         <button class="btn" id="stopBtn" disabled>Przerwij</button>
       </div>
     </aside>
@@ -184,7 +159,7 @@
 
       <section class="panel portfolio-panel" id="portfolioPanel">
         <div class="portfolio-head">
-          <div><h2>Portfel rekomendowany</h2><p>Dobór pozycji według budżetu, płynności, koncentracji, Confidence i Opportunity Score.</p></div>
+          <div><h2>Portfel rekomendowany</h2><p>Dobór pozycji głównie według ceny, wolumenu, budżetu i koncentracji. Confidence pozostaje informacją pomocniczą.</p></div>
           <div class="portfolio-state" id="portfolioStatus">Nie zbudowano portfela.</div>
         </div>
         <div class="portfolio-kpis">
@@ -192,12 +167,12 @@
           <div class="portfolio-kpi"><small>Kapitał użyty</small><b id="pfCapital">0</b></div>
           <div class="portfolio-kpi"><small>Wolne środki</small><b id="pfFree">0</b></div>
           <div class="portfolio-kpi"><small>Zysk nominalny</small><b id="pfProfit">0</b></div>
-          <div class="portfolio-kpi"><small>Zysk modelowy</small><b id="pfExpected">0</b></div>
-          <div class="portfolio-kpi"><small>ROI modelowy</small><b id="pfRoi">0%</b></div>
+          <div class="portfolio-kpi"><small>Zysk skorygowany (info)</small><b id="pfExpected">0</b></div>
+          <div class="portfolio-kpi"><small>ROI portfela</small><b id="pfRoi">0%</b></div>
         </div>
         <div class="table-wrap" style="max-height:330px">
           <table class="portfolio-table">
-            <thead><tr><th>#</th><th>Przedmiot</th><th>Trasa / model</th><th>Szt.</th><th>Vol/d</th><th>Liquidity</th><th>Kapitał</th><th>Zysk nominalny</th><th>Zysk modelowy</th><th>Confidence</th><th>Priorytet</th><th>Dlaczego</th></tr></thead>
+            <thead><tr><th>#</th><th>Przedmiot</th><th>Trasa / model</th><th>Szt.</th><th>Vol/d</th><th>Liquidity</th><th>Kapitał</th><th>Zysk nominalny</th><th>Zysk cena×wolumen</th><th>Confidence</th><th>Priorytet</th><th>Dlaczego</th></tr></thead>
             <tbody id="portfolioBody"></tbody>
           </table>
           <div class="portfolio-empty" id="portfolioEmpty">Najpierw wykonaj skan, a następnie zbuduj portfel.</div>
@@ -206,16 +181,30 @@
       </section>
 
       <section class="panel">
+        <div class="result-filters">
+          <div class="result-filter-head"><b>Filtry podstawowe: cena + wolumen</b><span id="resultCountMeta">—</span></div>
+          <div class="preset-row">
+            <button class="btn active" type="button" data-result-preset="all">Wszystkie dodatnie</button>
+            <button class="btn" type="button" data-result-preset="volume">Tylko z wolumenem</button>
+            <button class="btn" type="button" data-result-preset="active">Aktywny handel</button>
+            <button class="btn" type="button" data-result-preset="margin">Wyższa cena</button>
+          </div>
+          <div class="result-filter-grid simple-two">
+            <div class="field"><label>Min. zysk netto / szt. (cena)</label><input id="minProfit" type="number" min="0" step="100" value="0"></div>
+            <div class="field"><label>Min. wolumen / dzień</label><input id="minVolumeDay" type="number" min="0" step="0.1" value="0"></div>
+          </div>
+          <div class="filter-note">Tylko te dwa pola filtrują okazje. ROI, Confidence, świeżość, Liquidity Score i czas wyjścia są nadal liczone i można po nich sortować, ale nie usuwają wyników.</div>
+        </div>
         <div class="toolbar">
           <input id="resultSearch" class="grow" placeholder="Filtruj wyniki po nazwie, ID lub mieście…">
-          <select id="sortBy"><option value="score">Sortuj: Opportunity Score</option><option value="profitDay">Model Profit/day</option><option value="liquidity">Płynność</option><option value="volume">Wolumen</option><option value="exit">Czas wyjścia</option><option value="confidence">Confidence</option><option value="riskProfit">Zysk ważony pewnością</option><option value="profit">Zysk</option><option value="roi">ROI</option><option value="age">Świeżość</option><option value="buy">Cena zakupu</option></select>
+          <select id="sortBy"><option value="priceVolume" selected>Sortuj: Cena × wolumen</option><option value="profitDay">Model Profit/day</option><option value="liquidity">Płynność</option><option value="volume">Wolumen</option><option value="exit">Czas wyjścia</option><option value="confidence">Confidence</option><option value="riskProfit">Zysk ważony pewnością</option><option value="profit">Zysk</option><option value="roi">ROI</option><option value="age">Świeżość</option><option value="buy">Cena zakupu</option></select>
           <button class="btn" id="watchOnly">★ Obserwowane</button>
           <button class="btn" id="exportBtn">Eksport CSV</button>
         </div>
         <div class="table-wrap">
           <table>
             <thead><tr>
-              <th></th><th data-sort="item">Przedmiot</th><th>Model</th><th data-sort="route">Trasa</th><th data-sort="buy">Kupno</th><th data-sort="sell">Sprzedaż</th><th data-sort="profit">Zysk netto</th><th data-sort="roi">ROI</th><th data-sort="riskProfit">Zysk ważony</th><th data-sort="volume">Wolumen/d</th><th data-sort="liquidity">Liquidity</th><th>Safe / Normal / Agg.</th><th data-sort="exit">Wyjście</th><th data-sort="profitDay">Model Profit/day</th><th data-sort="age">Wiek</th><th data-sort="confidence">Confidence</th><th data-sort="score">Opportunity</th><th>Ocena</th><th></th>
+              <th></th><th data-sort="item">Przedmiot</th><th>Model</th><th data-sort="route">Trasa</th><th data-sort="buy">Kupno</th><th data-sort="sell">Sprzedaż</th><th data-sort="profit">Zysk netto</th><th data-sort="roi">ROI</th><th data-sort="riskProfit">Zysk ważony</th><th data-sort="volume">Wolumen/d</th><th data-sort="liquidity">Liquidity</th><th>Safe / Normal / Agg.</th><th data-sort="exit">Wyjście</th><th data-sort="profitDay">Profit/day</th><th data-sort="age">Wiek</th><th data-sort="confidence">Confidence</th><th data-sort="priceVolume">Cena×Vol</th><th>Ocena</th><th></th>
             </tr></thead>
             <tbody id="resultsBody"></tbody>
           </table>

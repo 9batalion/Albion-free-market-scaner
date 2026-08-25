@@ -1,12 +1,12 @@
 {
-  "name": "Albion Europe Market Scanner v5.2.1 Volume",
-  "short_name": "Albion Market v5.2.1",
+  "name": "Albion Europe Market Scanner v5.2.3 Price × Volume",
+  "short_name": "Albion Market v5.2.3",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b0e13",
   "theme_color": "#0b0e13",
-  "description": "Albion Online Europe market intelligence with category filters, PL/EN interface, volume/liquidity intelligence, portfolio optimizer, Confidence Score and local IndexedDB.",
+  "description": "Albion Online Europe market scanner focused on two primary criteria: net price profit and historical volume, with optional sorting by auxiliary indicators, PL/EN and IndexedDB.",
   "icons": [
     {
       "src": "./icon.svg",
