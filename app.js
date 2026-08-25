@@ -21,7 +21,7 @@ const MARKETS = [
 ];
 const qualityName = {1:'Normal',2:'Good',3:'Outstanding',4:'Excellent',5:'Masterpiece'};
 const DB_NAME='albion_europe_market_local_db';
-const DB_VERSION=5;
+const DB_VERSION=6;
 const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs','market_stats','portfolios'];
 const PROFILE = {
   conservative:{freshHalfLife:8, confidenceWeight:.62, profitWeight:.28, valueWeight:.10, crossedPenalty:42, anomalyPenalty:42},
@@ -39,7 +39,12 @@ const pct = n => Number.isFinite(+n) ? (+n).toLocaleString(locale(),{minimumFrac
 const esc = s => String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const now = () => Date.now();
 const clamp = (n,a=0,b=100) => Math.max(a,Math.min(b,n));
-const ageHours = d => {const t=Date.parse(d);return Number.isFinite(t)?Math.max(0,(now()-t)/36e5):Infinity;};
+function parseAodpTime(d){
+  if(!d||String(d).startsWith('0001-'))return NaN;
+  const v=String(d).trim(),hasZone=/[zZ]$|[+\-]\d{2}:?\d{2}$/.test(v);
+  return Date.parse(hasZone?v:v+'Z');
+}
+const ageHours = d => {const t=parseAodpTime(d);if(!Number.isFinite(t))return Infinity;const h=(now()-t)/36e5;return h < -0.25 ? Infinity : Math.max(0,h);};
 const ageText = h => !Number.isFinite(h)?tr('brak','n/a'):h<1?Math.round(h*60)+' min':h<48?h.toLocaleString(locale(),{maximumFractionDigits:1})+' h':(h/24).toLocaleString(locale(),{maximumFractionDigits:1})+' d';
 const marketLabel = api => MARKETS.find(m=>m.api===api)?.label || api;
 const itemIcon = (id,q=1) => `https://render.albiononline.com/v1/item/${encodeURIComponent(id)}.png?quality=${q}&size=64`;
@@ -71,7 +76,7 @@ const TEXT_PAIRS = {
   'Sortuj: Opportunity Score':'Sort: Opportunity Score','Zysk ważony pewnością':'Confidence-weighted profit','Zysk':'Profit','Świeżość':'Freshness','Cena zakupu':'Buy price','★ Obserwowane':'★ Watched','Eksport CSV':'Export CSV','Model':'Model','Trasa':'Route','Kupno':'Buy','Sprzedaż':'Sell','Zysk netto':'Net profit','Zysk ważony':'Weighted profit','Wiek':'Age','Opportunity':'Opportunity','Ocena':'Rating','Uruchom skan, aby wyszukać okazje między marketami Europy.':'Run a scan to find opportunities across European markets.',
   'Szczegóły':'Details','Zamknij':'Close','Powtarzalność':'Persistence','Płynność':'Liquidity','Zmienność':'Volatility','Zgodność z historią':'History plausibility',
   'wysoka pewność':'high confidence','dobry confidence':'good confidence','wysoki Opportunity':'high Opportunity','zakup poniżej mediany':'buy below median','dobra płynność':'good liquidity','anomalia':'anomaly','wysokie ryzyko':'high risk','stara cena':'stale price','dobry sygnał':'good signal','zweryfikuj':'verify',
-  'brak istotnych ostrzeżeń modelu.':'no material model warnings.','Ryzyka:':'Risks:','Portfel v5:':'Portfolio v5:','skrzyżowane notowania — możliwa różnica czasu aktualizacji':'crossed quotes — timestamps may be out of sync','cena blisko limitu świeżości':'price near the freshness limit','duży spread na rynku docelowym':'large spread in destination market','cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość':'buy price extremely below the current city median — verify freshness','cena zakupu ekstremalnie poniżej 14-dniowej mediany — możliwy stary rekord':'buy price extremely below the 14-day median — possibly stale record','buy order znacznie powyżej historycznej ceny sprzedaży — wysoka szansa nieaktualnego sygnału':'buy order far above historical sell price — high chance of a stale signal','niski historyczny obrót':'low historical volume','wysoka zmienność ceny':'high price volatility','Polski':'Polish'
+  'brak istotnych ostrzeżeń modelu.':'no material model warnings.','Ryzyka:':'Risks:','Portfel v5.1:':'Portfolio v5.1:','skrzyżowane notowania — możliwa różnica czasu aktualizacji':'crossed quotes — timestamps may be out of sync','cena blisko limitu świeżości':'price near the freshness limit','duży spread na rynku docelowym':'large spread in destination market','cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość':'buy price extremely below the current city median — verify freshness','cena zakupu ekstremalnie poniżej 14-dniowej mediany — możliwy stary rekord':'buy price extremely below the 14-day median — possibly stale record','buy order znacznie powyżej historycznej ceny sprzedaży — wysoka szansa nieaktualnego sygnału':'buy order far above historical sell price — high chance of a stale signal','niski historyczny obrót':'low historical volume','wysoka zmienność ceny':'high price volatility','Polski':'Polish'
 };
 const EN_TO_PL = Object.fromEntries(Object.entries(TEXT_PAIRS).map(([pl,en])=>[en,pl]));
 function translateKnownText(s){if(s==null)return s;const str=String(s);if(state.lang==='en')return TEXT_PAIRS[str]||str;return EN_TO_PL[str]||str;}
@@ -88,7 +93,7 @@ function translateDynamic(s){
 }
 function applyLanguage(lang,persist=true){
   state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
-  document.title=state.lang==='en'?'Albion Europe Market Scanner v5 — Categories & Bilingual Intelligence':'Albion Europe Market Scanner v5 — Kategorie i analiza PL/EN';
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.1 Audited — Categories & Bilingual Intelligence':'Albion Europe Market Scanner v5.1 Audited — Kategorie i analiza PL/EN';
   if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, sword…','e.g. Bag, T6_BAG, sword…');
   if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
   const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();renderPortfolio();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
@@ -238,9 +243,13 @@ async function updateMarketStats(freshRows){
 }
 function statsFor(itemId,city,q){return state.marketStats.get(statKey(itemId,city,q));}
 function persistenceScore(stat,side){
-  if(!stat)return 28;const u=stat[`${side}Updates`]||0,c=stat[`${side}ChangeCount`]||0,dev=stat[`${side}DevEma`]||0;
-  const updateScore=clamp(18+Math.log1p(u)*21),changeHealth=u?clamp(35+50*(c/u)):35,stability=clamp(100-dev*350);
-  return clamp(.55*updateScore+.20*changeHealth+.25*stability);
+  if(!stat)return 28;
+  const u=stat[`${side}Updates`]||0,c=stat[`${side}ChangeCount`]||0,dev=stat[`${side}DevEma`]||0,seen=Math.max(1,stat.scanSeen||1);
+  const updateRatio=clamp(u/seen,0,1),updateScore=clamp(15+60*updateRatio+8*Math.log1p(u));
+  const changeRatio=u?c/u:0,changeHealth=clamp(72-90*Math.max(0,changeRatio-.35));
+  const stability=clamp(100-dev*350);
+  const recencyH=stat.lastObservedAt?Math.max(0,(now()-stat.lastObservedAt)/36e5):168,recency=100*Math.pow(.5,recencyH/48);
+  return clamp(.40*updateScore+.20*changeHealth+.25*stability+.15*recency);
 }
 function spreadScore(r){
   const ask=+r.sell_price_min,bid=+r.buy_price_max;if(!(ask>0&&bid>0))return 38;
@@ -255,19 +264,21 @@ function profitScore(profit,roi){const r=100*(1-Math.exp(-Math.max(0,roi)/24)),p
 function baseConfidence(b,d,mode,cfg){
   const prof=PROFILE[cfg.riskProfile]||PROFILE.balanced,ageA=ageHours(b.sell_price_min_date),destDate=mode==='instant'?d.buy_price_max_date:d.sell_price_min_date,ageB=ageHours(destDate),fresh=freshnessScore(ageA,ageB,prof.freshHalfLife),spr=.5*spreadScore(b)+.5*spreadScore(d),persA=persistenceScore(statsFor(b.item_id,b.city,+b.quality),'sell'),persB=persistenceScore(statsFor(d.item_id,d.city,+d.quality),mode==='instant'?'buy':'sell'),persistence=(persA+persB)/2;
   let dataQuality=(b._source==='cache'||d._source==='cache')?48:82,warnings=[];
-  const crossedSrc=+b.buy_price_max>0&&+b.buy_price_max>+b.sell_price_min, crossedDst=+d.sell_price_min>0&&+d.buy_price_max>+d.sell_price_min;
-  if(crossedSrc||crossedDst){dataQuality-=prof.crossedPenalty;warnings.push('skrzyżowane notowania — możliwa różnica czasu aktualizacji');}
+  const crossedSrc=+b.buy_price_max>0&&+b.buy_price_max>+b.sell_price_min, crossedDst=+d.sell_price_min>0&&+d.buy_price_max>+d.sell_price_min,crossed=crossedSrc||crossedDst;
+  if(crossed)warnings.push('skrzyżowane notowania — możliwa różnica czasu aktualizacji');
   if(ageA>cfg.maxAge*.75||ageB>cfg.maxAge*.75)warnings.push('cena blisko limitu świeżości');
   if(spreadScore(d)<35)warnings.push('duży spread na rynku docelowym');
-  const confidence=clamp(.45*fresh+.22*spr+.20*persistence+.13*clamp(dataQuality));
-  return{confidence,components:{freshness:fresh,spread:spr,persistence,dataQuality:clamp(dataQuality),liquidity:null,volatility:null,historyPlausibility:null,value:null},warnings,age:Math.max(ageA,ageB)};
+  let confidence=.45*fresh+.22*spr+.20*persistence+.13*clamp(dataQuality);
+  if(crossed)confidence-=prof.crossedPenalty;
+  confidence=clamp(confidence);
+  return{confidence,components:{freshness:fresh,spread:spr,persistence,dataQuality:clamp(dataQuality),liquidity:null,volatility:null,historyPlausibility:null,value:null},warnings,age:Math.max(ageA,ageB),crossed};
 }
 function cfgFromUI(){return{minBuy:+el('minBuy').value||0,minProfit:+el('minProfit').value||0,minRoi:+el('minRoi').value||0,maxAge:+el('maxAge').value||24,minConfidence:+el('minConfidence').value||0,excludeSame:el('excludeSame').checked,freshBoth:el('onlyFreshBoth').checked,tax:el('premium').value==='yes'?4:8,setup:+el('setupFee').value||0,undercut:+el('undercut').value||0,transport:+el('transport').value||0,riskProfile:el('riskProfile').value||'balanced'};}
 function portfolioCfg(){return{budget:Math.max(0,+el('portfolioBudget').value||0),reservePct:clamp(+el('portfolioReservePct').value||0,0,90),maxItemPct:clamp(+el('portfolioMaxItemPct').value||20,1,100),maxRoutePct:clamp(+el('portfolioMaxRoutePct').value||40,1,100),maxPositions:clamp(+el('portfolioMaxPositions').value||12,1,50),maxUnits:clamp(+el('portfolioMaxUnits').value||25,1,500),minConfidence:clamp(+el('portfolioMinConfidence').value||55,0,100),liquidityDays:Math.max(.1,+el('portfolioLiquidityDays').value||1),riskProfile:el('riskProfile').value||'balanced'};}
 function modelLabel(o){if(o.dest==='Black Market')return'Black Market';if(o.mode==='instant')return'Instant arbitrage';if(o.history?.sourceDiscount>=12)return'Mean reversion';if((o.cityDiscount||0)>=12)return'City gap';return'Relist spread';}
 function recalcScore(o,cfg){
   const prof=PROFILE[cfg.riskProfile]||PROFILE.balanced,pScore=profitScore(o.profit,o.roi),value=o.components?.value??50;
-  o.riskProfit=Math.max(0,o.profit)*(0.20+0.80*(o.confidence/100));
+  o.riskProfit=Math.max(0,o.profit)*clamp(o.confidence||0,0,100)/100;
   o.score=clamp(prof.confidenceWeight*o.confidence+prof.profitWeight*pScore+prof.valueWeight*value);
   o.model=modelLabel(o);return o;
 }
@@ -279,15 +290,15 @@ function calcMode(rowsByItem,itemMap,mode,cfg){
     const destinations=mode==='instant'?rows.filter(r=>+r.buy_price_max>0).map(r=>({...r,_destPrice:+r.buy_price_max,_destAge:ageHours(r.buy_price_max_date),_destDate:r.buy_price_max_date})):rows.filter(r=>r.city!=='Black Market'&&+r.sell_price_min>0).map(r=>({...r,_destPrice:+r.sell_price_min*(1-cfg.undercut/100),_destAge:ageHours(r.sell_price_min_date),_destDate:r.sell_price_min_date}));
     for(const b of buys){for(const d of destinations){
       if(cfg.excludeSame&&b.city===d.city)continue;if(+b.quality!==+d.quality)continue;if(cfg.freshBoth&&(b._ageSell>cfg.maxAge||d._destAge>cfg.maxAge))continue;
-      const buy=+b.sell_price_min,gross=d._destPrice;if(!(buy>0&&gross>0))continue;
-      const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup,profit=gross-fees-buy-cfg.transport,roi=profit/buy*100,capitalPerUnit=buy+cfg.transport+setup;
+      const buy=Math.round(+b.sell_price_min),gross=mode==='relist'?Math.max(1,Math.floor(+d._destPrice)):Math.round(+d._destPrice);if(!(buy>0&&gross>0))continue;
+      const tax=Math.ceil(gross*cfg.tax/100),setup=mode==='relist'?Math.ceil(gross*cfg.setup/100):0,fees=tax+setup,capitalPerUnit=buy+cfg.transport+setup,profit=gross-fees-buy-cfg.transport,roi=profit/Math.max(1,capitalPerUnit)*100;
       if(profit<cfg.minProfit||roi<cfg.minRoi)continue;
       const base=baseConfidence(b,d,mode,cfg),item=itemMap.get(itemId)||{id:itemId,name:itemId,namePl:itemId,nameEn:itemId};
       const cityDiscount=Number.isFinite(cityMedian)&&cityMedian>0?(1-buy/cityMedian)*100:0;
       const cityValue=Number.isFinite(cityMedian)&&cityMedian>0?sourceValueScore(buy,{median:cityMedian}):50;
       base.components.value=cityValue;
       if(cityDiscount>65)base.warnings.push('cena zakupu ekstremalnie poniżej bieżącej mediany miast — sprawdź świeżość');
-      const o={schemaVersion:5,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,roi,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,capitalPerUnit,sourceDate:b.sell_price_min_date,destDate:d._destDate,age:base.age,confidence:base.confidence,components:base.components,warnings:base.warnings,cityMedian,cityDiscount,mode,history:null,calculatedAt:now(),sourceRow:b,destRow:d};
+      const o={schemaVersion:6,key:`${itemId}|${b.quality}|${b.city}|${d.city}|${mode}`,itemId,itemName:itemDisplayName(item),itemNamePl:item.namePl||item.name,itemNameEn:item.nameEn||item.name,quality:+b.quality,source:b.city,dest:d.city,buy,sell:gross,profit,roi,fees,taxFee:tax,setupFee:setup,transportCost:cfg.transport,capitalPerUnit,sourceDate:b.sell_price_min_date,destDate:d._destDate,age:base.age,confidence:base.confidence,components:base.components,warnings:base.warnings,cityMedian,cityDiscount,mode,history:null,calculatedAt:now(),sourceRow:b,destRow:d};
       recalcScore(o,cfg);result.push(o);
     }}
   }
@@ -299,10 +310,11 @@ function calcOpportunities(rowsByItem,itemMap,mode,cfg){
 }
 async function saveOpportunities(ops){await dbClear('opportunities');const cleaned=ops.map(({sourceRow,destRow,...o})=>o);await dbPutMany('opportunities',cleaned);}
 
-function historyMetrics(data){
-  const prices=(data||[]).map(x=>+x.avg_price).filter(x=>x>0),volumes=(data||[]).map(x=>+x.item_count).filter(x=>Number.isFinite(x)&&x>=0);if(!prices.length)return null;
-  const med=median(prices),avg=mean(prices),mad=median(prices.map(x=>Math.abs(x-med))),robustVol=med>0?(1.4826*mad/med):1,dailyVol=mean(volumes)||0;
-  return{median:med,avg,mad,robustVol,dailyVol,points:prices.length};
+function historyMetrics(data,windowDays=14){
+  const rows=(data||[]).map(x=>({price:+x.avg_price,volume:Math.max(0,+x.item_count||0)})).filter(x=>x.price>0);if(!rows.length)return null;
+  const prices=rows.map(x=>x.price),volumes=rows.map(x=>x.volume),med=median(prices),avg=mean(prices),mad=median(prices.map(x=>Math.abs(x-med))),robustVol=med>0?(1.4826*mad/med):1;
+  const totalVol=volumes.reduce((a,b)=>a+b,0),dailyVol=totalVol/Math.max(1,windowDays),activeDailyVol=mean(volumes)||0,vwap=totalVol>0?rows.reduce((a,x)=>a+x.price*x.volume,0)/totalVol:avg;
+  return{median:med,avg,vwap,mad,robustVol,dailyVol,activeDailyVol,totalVol,windowDays,points:prices.length};
 }
 function liquidityScore(vol){return clamp(18+21*Math.log10(1+Math.max(0,vol)));}
 function volatilityScore(v){return clamp(100-v*260);}
@@ -320,19 +332,23 @@ async function historyFor(itemId,city,quality){
   const end=new Date(),start=new Date(now()-14*864e5),ds=d=>d.toISOString().slice(0,10),url=`${API}/api/v2/stats/history/${encodeURIComponent(itemId)}.json?date=${ds(start)}&end_date=${ds(end)}&locations=${encodeURIComponent(city)}&qualities=${quality}&time-scale=24`;
   try{const j=await fetchJson(url,18000),h=(j||[]).find(x=>x.item_id===itemId&&x.location===city&&+x.quality===+quality),data=h?.data||[];await dbPut('history',{key,itemId,city,quality:+quality,data,fetchedAt:now()});return data;}catch{return cached?.data||[];}
 }
+function crossedFlag(o){const b=o.sourceRow,d=o.destRow;return !!((b&&+b.buy_price_max>0&&+b.sell_price_min>0&&+b.buy_price_max>+b.sell_price_min)||(d&&+d.buy_price_max>0&&+d.sell_price_min>0&&+d.buy_price_max>+d.sell_price_min));}
 async function enrichOne(o,cfg){
   const srcData=await historyFor(o.itemId,o.source,o.quality),dstData=o.dest==='Black Market'?[]:await historyFor(o.itemId,o.dest,o.quality),sm=historyMetrics(srcData),dm=historyMetrics(dstData);
   state.history.set(`${o.itemId}|${o.source}|${o.quality}`,srcData);if(dstData.length)state.history.set(`${o.itemId}|${o.dest}|${o.quality}`,dstData);
   const sourceValue=sourceValueScore(o.buy,sm),plaus=destinationPlausibility(o,dm),liq=liquidityScore(dm?.dailyVol??sm?.dailyVol??0),vol=volatilityScore(dm?.robustVol??sm?.robustVol??.4);
-  let historyPlausibility=.55*plaus+.45*sourceValue,warnings=[...(o.warnings||[])];
+  let historyPlausibility=.55*plaus+.45*sourceValue,warnings=[...(o.warnings||[])],severeAnomaly=false;
   const sourceRatio=sm?.median?o.buy/sm.median:null,destRatio=dm?.median?o.sell/dm.median:null;
   const sourceDiscount=sourceRatio?Math.max(-200,(1-sourceRatio)*100):null;
-  if(sourceRatio&&sourceRatio<.38){historyPlausibility-=30;warnings.push('cena zakupu ekstremalnie poniżej 14-dniowej mediany — możliwy stary rekord');}
-  if(o.mode==='instant'&&destRatio&&destRatio>1.65){historyPlausibility-=30;warnings.push('buy order znacznie powyżej historycznej ceny sprzedaży — wysoka szansa nieaktualnego sygnału');}
+  if(sourceRatio&&sourceRatio<.38){historyPlausibility-=30;severeAnomaly=true;warnings.push('cena zakupu ekstremalnie poniżej 14-dniowej mediany — możliwy stary rekord');}
+  if(o.mode==='instant'&&destRatio&&destRatio>1.65){historyPlausibility-=30;severeAnomaly=true;warnings.push('buy order znacznie powyżej historycznej ceny sprzedaży — wysoka szansa nieaktualnego sygnału');}
   if(liq<35)warnings.push('niski historyczny obrót');if(vol<35)warnings.push('wysoka zmienność ceny');
-  const c=o.components||{},fresh=c.freshness??50,spread=c.spread??50,persist=c.persistence??40,dataQ=c.dataQuality??50;
+  const c=o.components||{},fresh=c.freshness??50,spread=c.spread??50,persist=c.persistence??40,dataQ=c.dataQuality??50,prof=PROFILE[cfg.riskProfile]||PROFILE.balanced;
   o.components={...c,liquidity:liq,volatility:vol,historyPlausibility:clamp(historyPlausibility),value:sourceValue};
-  o.confidence=clamp(.28*fresh+.14*spread+.14*persist+.08*dataQ+.18*liq+.12*vol+.06*clamp(historyPlausibility));
+  let conf=.28*fresh+.14*spread+.14*persist+.08*dataQ+.18*liq+.12*vol+.06*clamp(historyPlausibility);
+  if(crossedFlag(o))conf-=prof.crossedPenalty*.45;
+  if(severeAnomaly)conf-=prof.anomalyPenalty;
+  o.confidence=clamp(conf);
   o.history={source:sm,destination:dm,sourceDiscount,destinationRatio:destRatio,points:srcData,basis:'AODP sell history; destination history is a valuation proxy for instant buy orders'};
   o.warnings=[...new Set(warnings)];recalcScore(o,cfg);return o;
 }
@@ -382,7 +398,7 @@ function makePortfolioCandidates(pcfg){
   const raw=state.opportunities.filter(o=>o.profit>0&&o.roi>0&&(o.confidence||0)>=pcfg.minConfidence&&Number.isFinite(o.buy)&&o.buy>0);
   const bestPerItem=new Map();
   for(const o of raw){
-    const capital=portfolioCapitalPerUnit(o),cap=estimatedLiquidityCap(o,pcfg),exec=clamp(.15+.85*(o.confidence||0)/100,0,1),modelProfit=Math.max(0,o.profit)*exec;
+    const capital=portfolioCapitalPerUnit(o),cap=estimatedLiquidityCap(o,pcfg),exec=clamp((o.confidence||0)/100,0,1),modelProfit=Math.max(0,o.profit)*exec;
     const riskRoi=modelProfit/Math.max(1,capital)*100,liq=o.components?.liquidity??40,fresh=o.components?.freshness??50;
     const utility=riskRoi*(.50+.50*(o.score||0)/100)*(.72+.28*liq/100)*(.80+.20*fresh/100);
     const c={...o,_capital:capital,_qtyCap:cap,_exec:exec,_modelUnitProfit:modelProfit,_riskRoi:riskRoi,_portfolioUtility:utility,_reason:portfolioReason(o,cap)};
@@ -413,7 +429,7 @@ function allocatePortfolio(candidates,pcfg){
   positions.sort((a,b)=>b.utility-a.utility);positions.forEach((x,i)=>x.rank=i+1);
   const capital=positions.reduce((s,x)=>s+x.capital,0),nominalProfit=positions.reduce((s,x)=>s+x.nominalProfit,0),modelProfit=positions.reduce((s,x)=>s+x.modelProfit,0),free=Math.max(0,budget-capital),weightedConfidence=capital?positions.reduce((s,x)=>s+x.confidence*x.capital,0)/capital:0,weightedScore=capital?positions.reduce((s,x)=>s+x.score*x.capital,0)/capital:0;
   const maxRouteShare=investable?Math.max(0,...routeUse.values())/investable*100:0,maxItemShare=investable?Math.max(0,...itemUse.values())/investable*100:0;
-  return{schemaVersion:5,key:'latest',createdAt:now(),config:pcfg,summary:{budget,investable,capital,free,targetReserve:budget-investable,nominalProfit,modelProfit,modelRoi:capital?modelProfit/capital*100:0,nominalRoi:capital?nominalProfit/capital*100:0,weightedConfidence,weightedScore,maxRouteShare,maxItemShare,positions:positions.length},positions};
+  return{schemaVersion:6,key:'latest',createdAt:now(),config:pcfg,summary:{budget,investable,capital,free,targetReserve:budget-investable,nominalProfit,modelProfit,modelRoi:capital?modelProfit/capital*100:0,nominalRoi:capital?nominalProfit/capital*100:0,weightedConfidence,weightedScore,maxRouteShare,maxItemShare,positions:positions.length},positions};
 }
 function renderPortfolio(){
   const pf=state.portfolio,body=el('portfolioBody'),empty=el('portfolioEmpty');if(!body)return;
@@ -422,7 +438,7 @@ function renderPortfolio(){
   el('pfBudget').textContent=fmt(s.budget);el('pfCapital').textContent=fmt(s.capital);el('pfFree').textContent=fmt(s.free);el('pfProfit').textContent='+'+fmt(s.nominalProfit);el('pfExpected').textContent='+'+fmt(s.modelProfit);el('pfRoi').textContent=pct(s.modelRoi);
   el('portfolioStatus').textContent=state.lang==='en'?`${s.positions} positions • confidence ${s.weightedConfidence.toFixed(0)}/100 • max route exposure ${s.maxRouteShare.toFixed(0)}% of budget`:`${s.positions} pozycji • confidence ${s.weightedConfidence.toFixed(0)}/100 • ekspozycja trasy max ${s.maxRouteShare.toFixed(0)}% budżetu`;
   body.innerHTML=pf.positions.map(x=>`<tr><td><b>${x.rank}</b></td><td><div class="itemcell"><img loading="lazy" src="${itemIcon(x.itemId,x.quality)}" alt=""><div><div class="itemname">${esc(displayItemNameById(x.itemId,state.lang==='en'?(x.itemNameEn||x.itemName):(x.itemNamePl||x.itemName)))}</div><div class="itemid">${esc(x.itemId)} • ${qualityName[x.quality]||x.quality}</div></div></div></td><td><div class="route"><b>${esc(marketLabel(x.source))}</b> → <b>${esc(marketLabel(x.dest))}</b></div><span class="tag info">${esc(translateDynamic(x.model||x.mode))}</span></td><td class="qty">${fmt(x.units)}</td><td>${fmt(x.capital)}</td><td class="profit">+${fmt(x.nominalProfit)}</td><td class="profit">+${fmt(x.modelProfit)}</td><td>${(x.confidence||0).toFixed(0)}/100</td><td>${(x.utility||0).toFixed(1)}</td><td class="portfolio-reason">${esc(translateDynamic(x.reason))}</td></tr>`).join('');
-  el('portfolioNote').innerHTML=state.lang==='en'?`Portfolio uses <b>${fmt(s.capital)}</b> of ${fmt(s.budget)} silver. Planned reserve: <b>${fmt(s.targetReserve)}</b>. Maximum exposure vs investable budget — item: <b>${s.maxItemShare.toFixed(1)}%</b>; route: <b>${s.maxRouteShare.toFixed(1)}%</b>. “Model profit” is nominal profit weighted by heuristic signal quality, not a statistically guaranteed expected value.`:`Portfel używa <b>${fmt(s.capital)}</b> z ${fmt(s.budget)} silver. Planowana rezerwa: <b>${fmt(s.targetReserve)}</b>. Maks. ekspozycja względem inwestowalnego budżetu — przedmiot: <b>${s.maxItemShare.toFixed(1)}%</b>; trasa: <b>${s.maxRouteShare.toFixed(1)}%</b>. „Zysk modelowy” to zysk nominalny ważony heurystyczną jakością sygnału, a nie statystycznie gwarantowana wartość oczekiwana.`;
+  el('portfolioNote').innerHTML=state.lang==='en'?`Portfolio uses <b>${fmt(s.capital)}</b> of ${fmt(s.budget)} silver. Planned reserve: <b>${fmt(s.targetReserve)}</b>. Maximum exposure vs investable budget — item: <b>${s.maxItemShare.toFixed(1)}%</b>; route: <b>${s.maxRouteShare.toFixed(1)}%</b>. “Model profit” is nominal profit multiplied by Confidence Score; it is not a statistically calibrated probability or a guaranteed expected value.`:`Portfel używa <b>${fmt(s.capital)}</b> z ${fmt(s.budget)} silver. Planowana rezerwa: <b>${fmt(s.targetReserve)}</b>. Maks. ekspozycja względem inwestowalnego budżetu — przedmiot: <b>${s.maxItemShare.toFixed(1)}%</b>; trasa: <b>${s.maxRouteShare.toFixed(1)}%</b>. „Zysk modelowy” to zysk nominalny pomnożony przez Confidence Score; nie jest to statystycznie skalibrowane prawdopodobieństwo ani gwarantowana wartość oczekiwana.`;
 }
 async function buildPortfolio(opts={}){
   if(!state.opportunities.length){if(!opts.silent)alert(tr('Najpierw wykonaj skan okazji.','Run an opportunity scan first.'));return null;}
@@ -434,8 +450,8 @@ async function buildPortfolio(opts={}){
     return state.portfolio;
   }finally{if(btn){btn.disabled=false;btn.textContent=tr('Zbuduj portfel','Build portfolio');}}
 }
-async function loadCachedPortfolio(){const pf=await dbGet('portfolios','latest');if(pf?.schemaVersion===5){state.portfolio=pf;renderPortfolio();return true;}state.portfolio=null;renderPortfolio();return false;}
-function exportPortfolioCsv(){const pf=state.portfolio;if(!pf?.positions?.length)return;const cols=['rank','item_id','name','quality','source','destination','model','units','capital','buy_unit','sell_unit','profit_unit','nominal_profit','model_profit','confidence','opportunity_score','liquidity_cap','reason'],lines=[cols.join(';'),...pf.positions.map(x=>[x.rank,x.itemId,displayItemNameById(x.itemId,state.lang==='en'?(x.itemNameEn||x.itemName):(x.itemNamePl||x.itemName)),qualityName[x.quality],marketLabel(x.source),marketLabel(x.dest),x.model,x.units,Math.round(x.capital),Math.round(x.buy),Math.round(x.sell),Math.round(x.profitPerUnit),Math.round(x.nominalProfit),Math.round(x.modelProfit),(x.confidence||0).toFixed(1),(x.score||0).toFixed(1),x.liquidityCap,translateDynamic(x.reason)].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_portfolio_v5.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+async function loadCachedPortfolio(){const pf=await dbGet('portfolios','latest');if(pf?.schemaVersion===6){state.portfolio=pf;renderPortfolio();return true;}state.portfolio=null;renderPortfolio();return false;}
+function exportPortfolioCsv(){const pf=state.portfolio;if(!pf?.positions?.length)return;const cols=['rank','item_id','name','quality','source','destination','model','units','capital','buy_unit','sell_unit','profit_unit','nominal_profit','model_profit','confidence','opportunity_score','liquidity_cap','reason'],lines=[cols.join(';'),...pf.positions.map(x=>[x.rank,x.itemId,displayItemNameById(x.itemId,state.lang==='en'?(x.itemNameEn||x.itemName):(x.itemNamePl||x.itemName)),qualityName[x.quality],marketLabel(x.source),marketLabel(x.dest),x.model,x.units,Math.round(x.capital),Math.round(x.buy),Math.round(x.sell),Math.round(x.profitPerUnit),Math.round(x.nominalProfit),Math.round(x.modelProfit),(x.confidence||0).toFixed(1),(x.score||0).toFixed(1),x.liquidityCap,translateDynamic(x.reason)].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_portfolio_v5_1.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 
 function modelTags(o){let tags=[`<span class="tag info">${esc(o.model||modelLabel(o))}</span>`];if(o.history?.sourceDiscount>=12)tags.push(`<span class="tag good">- ${o.history.sourceDiscount.toFixed(0)}% ${tr('vs mediana','vs median')}</span>`);return `<div class="modelbox">${tags.join('')}</div>`;}
 function flag(o){if(o.confidence>=78&&o.age<=6)return`<span class="tag good">${tr('wysoka pewność','high confidence')}</span>`;if(o.warnings?.some(x=>x.includes('ekstremalnie')||x.includes('znacznie powyżej')))return`<span class="tag bad">${tr('anomalia','anomaly')}</span>`;if(o.confidence<35)return`<span class="tag bad">${tr('wysokie ryzyko','high risk')}</span>`;if(o.age>24)return`<span class="tag bad">${tr('stara cena','stale price')}</span>`;if(o.confidence>=60)return`<span class="tag">${tr('dobry sygnał','good signal')}</span>`;return`<span class="tag warn">${tr('zweryfikuj','verify')}</span>`;}
@@ -455,14 +471,14 @@ function openDetail(o){
   const c=o.components||{};const breakdown=`<div class="breakdown">${compCard(tr('Świeżość','Freshness'),c.freshness)}${compCard('Spread',c.spread)}${compCard(tr('Powtarzalność','Persistence'),c.persistence)}${compCard(tr('Płynność','Liquidity'),c.liquidity)}${compCard(tr('Zmienność','Volatility'),c.volatility)}${compCard(tr('Zgodność z historią','History plausibility'),c.historyPlausibility)}</div>`;
   const warnings=o.warnings?.length?`<br><b>${tr('Ryzyka:','Risks:')}</b> ${o.warnings.map(x=>esc(translateDynamic(x))).join(' • ')}`:`<br><b>${tr('Ryzyka:','Risks:')}</b> ${tr('brak istotnych ostrzeżeń modelu.','no material model warnings.')}`;
   const hist=o.history?.source?.median?(state.lang==='en'?`<br>14-day source median: <b>${fmt(o.history.source.median)}</b>; average volume/day: <b>${(o.history.source.dailyVol||0).toFixed(1)}</b>.`:`<br>14-dniowa mediana źródła: <b>${fmt(o.history.source.median)}</b>; średni wolumen/dzień: <b>${(o.history.source.dailyVol||0).toFixed(1)}</b>.`):'';
-  const pfPos=state.portfolio?.positions?.find(x=>x.opportunityKey===o.key);const pfInfo=pfPos?(state.lang==='en'?`<br><b>Portfolio v5:</b> priority #${pfPos.rank}, ${fmt(pfPos.units)} units, capital ${fmt(pfPos.capital)}, model profit ${fmt(pfPos.modelProfit)}.`:`<br><b>Portfel v5:</b> priorytet #${pfPos.rank}, ${fmt(pfPos.units)} szt., kapitał ${fmt(pfPos.capital)}, zysk modelowy ${fmt(pfPos.modelProfit)}.`):'';
+  const pfPos=state.portfolio?.positions?.find(x=>x.opportunityKey===o.key);const pfInfo=pfPos?(state.lang==='en'?`<br><b>Portfolio v5.1:</b> priority #${pfPos.rank}, ${fmt(pfPos.units)} units, capital ${fmt(pfPos.capital)}, model profit ${fmt(pfPos.modelProfit)}.`:`<br><b>Portfel v5.1:</b> priorytet #${pfPos.rank}, ${fmt(pfPos.units)} szt., kapitał ${fmt(pfPos.capital)}, zysk modelowy ${fmt(pfPos.modelProfit)}.`):'';
   el('detailNote').innerHTML=state.lang==='en'?`Buy: <b>${fmt(o.buy)}</b> in ${esc(marketLabel(o.source))}. Target: <b>${fmt(o.sell)}</b> in ${esc(marketLabel(o.dest))}. Required capital / unit: <b>${fmt(portfolioCapitalPerUnit(o))}</b>. Confidence-weighted profit: <b>${fmt(o.riskProfit)}</b>. Opportunity Score: <b>${(o.score||0).toFixed(0)}/100</b>.${hist}${pfInfo}${warnings}<br><span class="muted">Confidence Score is a heuristic signal-quality measure, not a guarantee of execution or available quantity.</span>${breakdown}`:`Kupno: <b>${fmt(o.buy)}</b> w ${esc(marketLabel(o.source))}. Cel: <b>${fmt(o.sell)}</b> w ${esc(marketLabel(o.dest))}. Kapitał wymagany / szt.: <b>${fmt(portfolioCapitalPerUnit(o))}</b>. Zysk ważony pewnością: <b>${fmt(o.riskProfit)}</b>. Opportunity Score: <b>${(o.score||0).toFixed(0)}/100</b>.${hist}${pfInfo}${warnings}<br><span class="muted">Confidence Score jest heurystyką jakości sygnału, nie gwarancją wykonania transakcji ani dostępnej liczby sztuk.</span>${breakdown}`;
   el('detailDialog').showModal();
 }
 function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:Date.parse(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML=`<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">${tr('Brak historii dla tego sygnału.','No history for this signal.')}</text>`;return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">${tr('14 dni','14 days')} • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">${tr('zakup','buy')} ${fmt(current)}</text>`;}
-function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','model','source','destination','buy','sell','profit','roi_pct','risk_weighted_profit','age_h','confidence','opportunity_score','mode'],lines=[cols.join(';'),...a.map(o=>[o.itemId,displayOpportunityName(o),qualityName[o.quality],o.model,marketLabel(o.source),marketLabel(o.dest),Math.round(o.buy),Math.round(o.sell),Math.round(o.profit),o.roi.toFixed(2),Math.round(o.riskProfit||0),o.age.toFixed(2),(o.confidence||0).toFixed(1),(o.score||0).toFixed(1),o.mode].map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_opportunities_v5.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
-async function loadCachedOpportunities(){let ops=await dbGetAll('opportunities');ops=ops.filter(x=>x.schemaVersion===5);if(!ops.length){await dbClear('opportunities');return false;}state.opportunities=ops;el('validateBtn').disabled=false;const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);render();return true;}
-async function exportDB(){const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`albion-local-db-v5-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+function exportCsv(){const a=filteredResults();if(!a.length)return;const cols=['item_id','name','quality','model','source','destination','buy','sell','profit','roi_pct','risk_weighted_profit','age_h','confidence','opportunity_score','mode'],lines=[cols.join(';'),...a.map(o=>[o.itemId,displayOpportunityName(o),qualityName[o.quality],o.model,marketLabel(o.source),marketLabel(o.dest),Math.round(o.buy),Math.round(o.sell),Math.round(o.profit),o.roi.toFixed(2),Math.round(o.riskProfit||0),o.age.toFixed(2),(o.confidence||0).toFixed(1),(o.score||0).toFixed(1),o.mode].map(v=>'"'+String(v).replaceAll('"','""')+'"').join(';'))],blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),ael=document.createElement('a');ael.href=u;ael.download='albion_europe_opportunities_v5_1.csv';ael.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
+async function loadCachedOpportunities(){let ops=await dbGetAll('opportunities');ops=ops.filter(x=>x.schemaVersion===6);if(!ops.length){await dbClear('opportunities');return false;}state.opportunities=ops;el('validateBtn').disabled=false;const newest=ops.reduce((m,x)=>Math.max(m,x.calculatedAt||0),0);el('lastScan').textContent=newest?new Date(newest).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'})+' cache':'cache';setProgress(0,state.lang==='en'?`Showing ${fmt(ops.length)} opportunities from local.db.`:`Pokazano ${fmt(ops.length)} okazji z local.db.`);render();return true;}
+async function exportDB(){const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=`albion-local-db-v5_1-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 async function importDBFile(file){const txt=await file.text(),j=JSON.parse(txt);if(j?.format!=='albion-market-local-db'||!j.stores)throw new Error(tr('Nieprawidłowy backup','Invalid backup'));for(const s of DB_STORES){await dbClear(s);if(Array.isArray(j.stores[s]))await dbPutMany(s,j.stores[s]);}state.watched=new Set((await dbGetAll('watchlist')).map(x=>x.itemId));setItems(await dbGetAll('items'));state.marketStats=new Map((await dbGetAll('market_stats')).map(x=>[x.key,x]));await loadSettings();await loadCachedOpportunities();await loadCachedPortfolio();await updateDbInfo();}
 async function clearCache(){if(!confirm(tr('Wyczyścić ceny, historię, modele rynku i zapisane okazje? Baza przedmiotów i ustawienia zostaną.','Clear prices, history, market models and saved opportunities? Item database and settings will remain.')))return;for(const s of ['prices','history','opportunities','scan_runs','market_stats','portfolios'])await dbClear(s);state.opportunities=[];state.portfolio=null;state.history.clear();state.marketStats.clear();render();renderPortfolio();await updateDbInfo();setProgress(0,tr('Lokalny cache i profile modeli wyczyszczone.','Local cache and model profiles cleared.'));}
 function scheduleAuto(){clearInterval(autoTimer);const m=+el('autoRefresh').value||0;if(m>0)autoTimer=setInterval(()=>{if(document.visibilityState==='visible'&&!el('scanBtn').disabled)scan({auto:true}).catch(()=>{});},m*60000);}

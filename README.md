@@ -1,3 +1,7 @@
+# Albion Europe Market Scanner v5.1 — Audited
+
+Wersja po audycie obliczeń: poprawione parsowanie czasu AODP jako UTC, ROI liczone względem realnego kapitału wejścia, całkowitoliczbowa cena relistingu, normalizacja 14-dniowego wolumenu, realne użycie anomaly/crossed penalties oraz bardziej przejrzysty confidence-weighted profit.
+
 # Albion Europe Market Scanner v5 — Portfolio Intelligence
 
 Statyczna aplikacja PWA przygotowana pod GitHub Pages. Nie wymaga backendu. Łączy się bezpośrednio z europejskim API Albion Online Data Project i przechowuje własną pamięć rynku w IndexedDB.
