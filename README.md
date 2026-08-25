@@ -1,4 +1,12 @@
-# Albion Europe Market Scanner v5.4.6 — Pierwszy skan ręczny
+# Albion Europe Market Scanner v5.4.7 — Dobra luksusowe i sortowanie czasu
+
+Naprawiono kategorię `Dobra luksusowe`. Przedmioty te mają identyfikatory `TREASURE_...`, a nie standardowe identyfikatory `T4_–T8_`, dlatego poprzedni filtr odrzucał je przed wysłaniem zapytań do AODP. v5.4.7 rozpoznaje 21 dóbr luksusowych z rodzin Knowledge, Silverware, Decorative, Ceremonial, Tribal, Ritual i Avalon. Są dostępne przy ustawieniu `Tier = Wszystkie`.
+
+Kliknięcie nagłówka `Cena kupna` sortuje teraz według czasu odczytu ceny zakupu, a kliknięcie `Cena sprzedaży` — według czasu odczytu ceny sprzedaży. Pierwsze kliknięcie pokazuje najnowsze odczyty, drugie odwraca kolejność. Wysokość ceny nie jest kryterium tych dwóch kolumn.
+
+Szczegóły zmiany: `AUDIT-V5.4.7-LUXURY-TIME-SORT.md`.
+
+## Funkcje odziedziczone z v5.4.6
 
 Po każdym otwarciu aplikacji pierwszy skan musi zostać uruchomiony ręcznie. Harmonogram pozostaje dostępny i domyślnie ma interwał 10 minut, ale jest zablokowany do chwili, gdy użytkownik skonfiguruje skaner i naciśnie `Skanuj`. Pierwsze ręczne uruchomienie odblokowuje harmonogram i rozpoczyna odliczanie interwału od początku.
 
