@@ -1,4 +1,49 @@
-# Albion Europe Market Scanner v5.5.2 — bezpieczny start na Safari/iOS
+# Albion Europe Market Scanner v5.5.5 — poprawiona i zweryfikowana rafinacja
+
+## Zmiana v5.5.5
+
+Moduł rafinacji został porównany z 215 bieżącymi recepturami danych gry: 130 standardowymi oraz 85 alternatywnymi recepturami z sercami frakcji.
+
+- naprawiono zaczarowany kamień `.1–.3`: receptura wymaga teraz 2/4/8 bloków poprzedniego tieru i daje 2/4/8 zwykłych bloków,
+- dodano opcjonalne porównanie receptur z sercami frakcji,
+- opłata stacji jest wpisywana osobno dla każdego rodzaju surowca jako cena za 100 odżywienia i automatycznie przeliczana z `item value`,
+- dzienny bonus można ustawić osobno dla każdego rodzaju surowca,
+- dodano specjalizacje T4–T8 osobno dla każdej rodziny rafinacji,
+- focus ogranicza wielkość partii dostępnym budżetem, a wynik pokazuje zużycie focusu i dodatkowy zysk na punkt,
+- setup fee jest wliczane także do kapitału potrzebnego do rozpoczęcia sprzedaży przez własną ofertę,
+- najstarsza cena użyta w kalkulacji jest pokazana i może wywołać ostrzeżenie bez odrzucania wyniku,
+- kolumny zakupu i sprzedaży sortują po czasie odczytu ceny,
+- zysk większej partii jest oznaczony jako szacunek, dopóki użytkownik nie wpisze ilości potwierdzonej w grze,
+- dodano pełny test regresyjny krytycznych receptur, opłat, focusu, kapitału i czasu cen.
+
+## Funkcje odziedziczone z v5.5.4
+
+## Zmiana v5.5.4
+
+Moduł rafinacji nie wymaga już znajomości technicznych określeń. `Tier` jest opisany jako poziom przedmiotu, `enchant` jako poziom zaczarowania, a identyfikatory AODP są ukryte w rozwijanej sekcji technicznej.
+
+- `T4.3` jest wyświetlane jako `poziom 4 (T4), zaczarowanie 3 (.3)`,
+- lista zakupów używa polskich nazw materiałów,
+- liczba rafinacji jest opisana jako liczba użyć stacji,
+- `zwrot surowców` zmieniono na `odzysk materiałów`,
+- `profit` zastąpiono słowem `zysk`,
+- nazwy pól sprzedaży, opłat i focusu otrzymały pełne wyjaśnienia,
+- również główny skaner wyjaśnia teraz poziom przedmiotu i zaczarowanie.
+
+## Funkcje odziedziczone z v5.5.3
+
+## Zmiana v5.5.3
+
+Ustawienie `Tier: Wszystkie T2–T8`, wszystkie kategorie, wszystkie enchanty i `Limit przedmiotów: 0` wybiera cały załadowany katalog handlowalnych przedmiotów — na aktualnym katalogu widocznym w aplikacji około 9539 identyfikatorów zamiast około 5234.
+
+- dodano T2 i T3 do listy tierów,
+- tryb `Wszystkie` obejmuje T2–T8 oraz dobra luksusowe,
+- zapytania nadal są automatycznie dzielone na bezpieczne partie AODP,
+- puste rekordy cen nie są przechowywane w pamięci,
+- pusta aktualna odpowiedź usuwa wcześniejszy rekord ceny, więc cache nie przywraca nieaktualnej oferty,
+- pełny skan wszystkich jakości i wszystkich miast może potrwać kilkanaście minut.
+
+## Funkcje odziedziczone z v5.5.2
 
 ## Zmiana v5.5.2
 
