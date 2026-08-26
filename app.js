@@ -26,7 +26,8 @@ const ITEM_CATALOG_SCHEMA=2;
 const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs'];
 const el = id => document.getElementById(id);
 const state = {items:[],itemById:new Map(),raw:[],opportunities:[],stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0},manualScanUnlocked:false,sortDirection:'desc'};
-let db=null,settingsTimer=null,autoTimer=null;
+let db=null,settingsTimer=null,autoTimer=null,memoryAutoId=0;
+const memoryStores=new Map(['items','prices','history','watchlist','settings','opportunities','scan_runs'].map(name=>[name,new Map()]));
 
 const locale = () => state.lang==='en'?'en-US':'pl-PL';
 const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString(locale()) : '—';
@@ -236,7 +237,7 @@ function translateDynamic(s){
 }
 function applyLanguage(lang,persist=true){
   state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
-  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.5.1 — Trading and Refining':'Albion Europe Market Scanner v5.5.1 — Handel i rafinacja';
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.5.2 — Trading and Refining':'Albion Europe Market Scanner v5.5.2 — Handel i rafinacja';
   if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, peleryna…','e.g. Bag, T6_BAG, cape…');
   if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
   const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
@@ -313,7 +314,11 @@ function setDbStatus(txt,good=true){el('localDbStatus').textContent=txt;el('loca
 
 function openLocalDB(){
   return new Promise((resolve,reject)=>{
-    const req=indexedDB.open(DB_NAME,DB_VERSION);
+    if(!globalThis.indexedDB)return reject(new Error('IndexedDB niedostępna'));
+    let finished=false;
+    const finish=(fn,value)=>{if(finished)return;finished=true;clearTimeout(timer);fn(value);};
+    const timer=setTimeout(()=>finish(reject,new Error('Przekroczono czas otwierania IndexedDB')),8000);
+    let req;try{req=indexedDB.open(DB_NAME,DB_VERSION);}catch(error){finish(reject,error);return;}
     req.onupgradeneeded=()=>{
       const d=req.result;
       if(!d.objectStoreNames.contains('items'))d.createObjectStore('items',{keyPath:'id'});
@@ -326,21 +331,24 @@ function openLocalDB(){
       if(d.objectStoreNames.contains('market_stats'))d.deleteObjectStore('market_stats');
       if(d.objectStoreNames.contains('portfolios'))d.deleteObjectStore('portfolios');
     };
-    req.onsuccess=()=>{db=req.result;resolve(db);};req.onerror=()=>reject(req.error);
+    req.onsuccess=()=>{if(finished){req.result.close();return;}db=req.result;db.onversionchange=()=>{db?.close();db=null;};finish(resolve,db);};
+    req.onerror=()=>finish(reject,req.error||new Error('Nie udało się otworzyć IndexedDB'));
+    req.onblocked=()=>finish(reject,new Error('IndexedDB jest zablokowana przez inną kartę'));
   });
 }
 function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('DB abort'));});}
-async function dbPut(store,value){const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);await txDone(tx);}
-async function dbPutMany(store,values){if(!values?.length)return;const tx=db.transaction(store,'readwrite'),s=tx.objectStore(store);for(const v of values)s.put(v);await txDone(tx);}
-async function dbGet(store,key){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
-async function dbGetAll(store){return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}
-async function dbClear(store){const tx=db.transaction(store,'readwrite');tx.objectStore(store).clear();await txDone(tx);}
+function memoryKey(store,value){if(store==='items')return value.id;if(store==='watchlist')return value.itemId;if(store==='scan_runs')return value.id??++memoryAutoId;return value.key;}
+async function dbPut(store,value){if(!db){memoryStores.get(store)?.set(memoryKey(store,value),value);return;}const tx=db.transaction(store,'readwrite');tx.objectStore(store).put(value);await txDone(tx);}
+async function dbPutMany(store,values){if(!values?.length)return;if(!db){for(const value of values)memoryStores.get(store)?.set(memoryKey(store,value),value);return;}const tx=db.transaction(store,'readwrite'),s=tx.objectStore(store);for(const v of values)s.put(v);await txDone(tx);}
+async function dbGet(store,key){if(!db)return memoryStores.get(store)?.get(key);return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).get(key);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});}
+async function dbGetAll(store){if(!db)return[...(memoryStores.get(store)?.values()||[])];return new Promise((resolve,reject)=>{const r=db.transaction(store).objectStore(store).getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error);});}
+async function dbClear(store){if(!db){memoryStores.get(store)?.clear();return;}const tx=db.transaction(store,'readwrite');tx.objectStore(store).clear();await txDone(tx);}
 
 async function updateDbInfo(){
-  if(!db)return;
   const [prices,hist,ops]=await Promise.all(['prices','history','opportunities'].map(dbGetAll));
   const newest=prices.reduce((m,x)=>Math.max(m,x.cachedAt||0),0);
-  el('localDbInfo').textContent=state.lang==='en'?`IndexedDB: ${fmt(prices.length)} prices • ${fmt(hist.length)} volume histories • ${fmt(ops.length)} routes${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`:`IndexedDB: ${fmt(prices.length)} cen • ${fmt(hist.length)} historii wolumenu • ${fmt(ops.length)} tras${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`;
+  const label=db?'IndexedDB':(state.lang==='en'?'Temporary memory':'Pamięć tymczasowa');
+  el('localDbInfo').textContent=state.lang==='en'?`${label}: ${fmt(prices.length)} prices • ${fmt(hist.length)} volume histories • ${fmt(ops.length)} routes${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`:`${label}: ${fmt(prices.length)} cen • ${fmt(hist.length)} historii wolumenu • ${fmt(ops.length)} tras${newest?' • cache '+new Date(newest).toLocaleString(locale()):''}.`;
 }
 async function saveWatch(){await dbClear('watchlist');await dbPutMany('watchlist',[...state.watched].map(itemId=>({itemId})));}
 function currentSettings(){
@@ -348,7 +356,7 @@ function currentSettings(){
   const v={};for(const id of ids){const x=el(id);if(x)v[id]=x.type==='checkbox'?x.checked:x.value;}
   v.markets=selectedMarkets();v.categories=selectedCategories();v.sortDirection=state.sortDirection;v._uiSchema=13;return v;
 }
-async function saveSettings(){if(!db)return;await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
+async function saveSettings(){await dbPut('settings',{key:'ui',value:currentSettings(),savedAt:now()});scheduleAuto();}
 async function loadSettings(){
   const rec=await dbGet('settings','ui');if(!rec?.value)return;
   const v={...rec.value};
@@ -362,7 +370,7 @@ async function loadSettings(){
   if((+v._uiSchema||1)<11){Object.assign(v,{autoRefresh:v.autoRefresh==='0'?'10':(v.autoRefresh||'10'),sortBy:'freshness',_uiSchema:11});delete v.autoStart;}
   // v5.4.6: clickable table headers and optional fixed city-to-city route.
   if((+v._uiSchema||1)<12){Object.assign(v,{sortDirection:defaultSortDirection(v.sortBy||'freshness'),startCity:v.startCity||'all',destinationCity:v.destinationCity||'all',_uiSchema:12});}
-  // v5.5.1: price columns sort by their observation time, newest first.
+  // v5.5.2: price columns sort by their observation time, newest first.
   if((+v._uiSchema||1)<13){if(v.sortBy==='buy')v.sortBy='buyTime';if(v.sortBy==='sell')v.sortBy='sellTime';if(['buyTime','sellTime'].includes(v.sortBy))v.sortDirection='desc';v._uiSchema=13;}
   for(const [id,val] of Object.entries(v)){const x=el(id);if(!x||id==='markets'||id==='categories'||id==='sortDirection'||id==='_uiSchema')continue;if(x.type==='checkbox')x.checked=!!val;else x.value=String(val);}
   state.sortDirection=['asc','desc'].includes(v.sortDirection)?v.sortDirection:defaultSortDirection(v.sortBy||'freshness');
@@ -698,7 +706,7 @@ function render(){
 function openDetail(o){
   el('detailTitle').textContent=`${displayOpportunityName(o)} — ${marketLabel(o.source)} → ${marketLabel(o.dest)}`;const v=o.volume||{};
   const bulk=o.bulk||bulkPlanFor(o,cfgFromUI()),r=o.reality||{},gc=r.grade==='A'?'good':r.grade==='B'?'info':r.grade==='C'?'warn':'bad';el('detailCards').innerHTML=`<div class="detail-card"><small>${tr('Cena kupna','Buy price')}</small><b>${fmt(o.buy)}</b></div><div class="detail-card"><small>${tr('Cena sprzedaży','Sell price')}</small><b>${fmt(o.sell)}</b></div><div class="detail-card"><small>${tr('Zysk top quote / szt.','Top-quote profit / unit')}</small><b class="profit">+${fmt(o.profit)}</b></div><div class="detail-card"><small>${tr('Ocena realności','Market reality')}</small><b><span class="tag ${gc}">${r.grade||'—'} ${esc(r.label||'')}</span> ${Number.isFinite(r.score)?r.score+'/100':'—'}</b></div><div class="detail-card"><small>${tr('Kompletność danych','Data completeness')}</small><b>${Number.isFinite(r.dataCompleteness)?r.dataCompleteness+'%':'—'}</b></div><div class="detail-card"><small>${tr('Ref. kupna 7d','7d buy ref.')}</small><b>${Number.isFinite(r.buyRef)?fmt(r.buyRef):'—'}</b></div><div class="detail-card"><small>${tr('Ref. sprzedaży 7d','7d sell ref.')}</small><b>${Number.isFinite(r.sellRef)?fmt(r.sellRef):'—'}</b></div><div class="detail-card"><small>${tr('Odczyt ceny kupna','Buy quote observed')}</small><b class="quote-time-detail">${esc(quoteTimestampText(o.sourceDate))}</b></div><div class="detail-card"><small>${tr('Odczyt ceny sprzedaży','Sell quote observed')}</small><b class="quote-time-detail">${esc(saleTimestampText(o))}</b></div><div class="detail-card"><small>${tr('Źródło bezpieczne / dzień','Safe source / day')}</small><b>${volumeFmt(v.sourceSafeDaily,v.sourceStatus)}</b></div><div class="detail-card"><small>${tr('Sprzedaż cel bezpieczna / dzień','Safe destination sales / day')}</small><b>${destinationVolumeText(o)}</b></div><div class="detail-card"><small>${tr('Skala trasy / dzień','Route scale / day')}</small><b>${volumeFmt(v.routeSafeDaily,(v.sourceStatus==='error'||v.destinationStatus==='error')?'error':(v.sourceStatus?.includes('cache')||v.destinationStatus?.includes('cache'))?'stale-cache':'fresh')}</b></div><div class="detail-card"><small>${tr('Plan szt.','Planned units')}</small><b>${fmt(bulk.qty)}</b></div><div class="detail-card"><small>${tr('Kapitał planu','Plan capital')}</small><b>${fmt(bulk.capital)}</b></div><div class="detail-card"><small>${tr('Szac. zysk transportu','Est. trip profit')}</small><b class="profit">+${fmt(bulk.totalProfit)}</b></div><div class="detail-card"><small>${tr('Efektywny zysk / szt. planu','Effective plan profit / unit')}</small><b class="profit">${bulk.qty>0?'+'+fmt(bulk.effectiveProfitUnit):'—'}</b></div><div class="detail-card"><small>${tr('Czas sprzedaży planu','Plan sell-through')}</small><b>${Number.isFinite(bulk.daysAtVolume)?bulk.daysAtVolume.toLocaleString(locale(),{maximumFractionDigits:2})+' d':'—'}</b></div><div class="detail-card"><small>${tr('Śr. źródło 7d / dzień','7d avg source / day')}</small><b>${volumeFmt(v.buyDaily,v.sourceStatus)}</b></div><div class="detail-card"><small>${tr('Śr. cel 7d / dzień','7d avg destination / day')}</small><b>${volumeFmt(v.sellDaily,v.destinationStatus)}</b></div><div class="detail-card"><small>${tr('Historyczny zysk / szt.','Historical profit / unit')}</small><b class="${Number.isFinite(r.repeatableProfit)&&r.repeatableProfit>0?'profit':''}">${Number.isFinite(r.repeatableProfit)?fmt(r.repeatableProfit):'—'}</b></div>`;
-  const data=state.history.get(`${o.itemId}|${o.source}|${o.quality}`)||o.history?.points||[];drawChart(data,o.buy);const note=o.fixedPayout?tr('Stała cena sprzedaży wynika z reguły dobra luksusowego; AODP służy tylko do znalezienia najtańszej oferty zakupu. Skup miejski nie ogranicza partii.','The fixed sell payout comes from the luxury-good rule; AODP is used only to find the cheapest purchase offer. City buyback does not cap the batch.'):o.dest==='Black Market'?tr('Dla Black Market publiczna historia AODP nie daje porównywalnego wolumenu aktualnego buy orderu, dlatego wolumen sprzedaży celu i sugerowana partia są oznaczone jako brak.','For Black Market, public AODP history does not provide comparable current buy-order volume, so destination sell volume and suggested quantity are unavailable.'):tr('Wolumen źródła i celu jest liczony osobno z historii sell-side AODP. Bezpieczny wolumen to minimum średniej 7d i mediany dziennej 7d. Pole Zabierz ogranicza partia możliwa do kupna wg skali źródła, planowany udział sprzedaży w mieście docelowym, budżet i limit sztuk. To nadal nie jest bieżąca głębokość order booka.','Source and destination volume are calculated separately from AODP sell-side history. Safe daily volume is the lower of the 7-day average and 7-day daily median. Take quantity is capped by source-market scale, the selected share of destination sales, budget and max units. This is still not current order-book depth.'),quoteCaveat=o.fixedPayout?tr('Czas obok ceny zakupu pochodzi z AODP; cena sprzedaży jest stałą wartością dobra w grze.','The buy time comes from AODP; the sell price is the item’s fixed in-game payout.'):tr('Każda cena jest ostatnim odczytem AODP z czasu pokazanego obok, a nie gwarantowaną ceną bieżącą w grze.','Each price is the latest AODP observation from the displayed time, not a guaranteed current in-game price.');el('detailNote').innerHTML=`${tr('Kup','Buy')}: <b>${fmt(o.buy)}</b> — ${esc(marketLabel(o.source))}. ${tr('Odczyt','Observed')}: <b>${esc(quoteTimestampText(o.sourceDate))}</b>.<br>${tr('Sprzedaj','Sell')}: <b>${fmt(o.sell)}</b> — ${esc(marketLabel(o.dest))}. ${tr('Podstawa','Basis')}: <b>${esc(saleTimestampText(o))}</b>.<br>${tr('Zysk po opłatach','Profit after fees')}: <b class="profit">+${fmt(o.profit)}</b> / ${tr('szt.','unit')}.<br>${tr('Interpretacja v5.5.1','v5.5.1 interpretation')}: <b>${Number.isFinite(r.score)?r.score+'/100':'—'}</b> — ${esc(r.label||tr('brak oceny','not rated'))}. ${Number.isFinite(r.repeatableProfit)?`${tr('Historyczny spread 7d po opłatach','7d historical spread after fees')}: <b class="${r.repeatableProfit>0?'profit':''}">${fmt(r.repeatableProfit)}</b> / ${tr('szt.','unit')}.`:''}<br><span class="muted">${o.priceGuard?.sourceWarning?`<b>${tr('Uwaga: bardzo niska cena zakupu została zachowana, ale wymaga sprawdzenia w grze.','Warning: the extremely low buy price was kept, but should be verified in-game.')}</b> `:''}${esc(note)} ${esc(quoteCaveat)}</span>`;el('detailDialog').showModal();
+  const data=state.history.get(`${o.itemId}|${o.source}|${o.quality}`)||o.history?.points||[];drawChart(data,o.buy);const note=o.fixedPayout?tr('Stała cena sprzedaży wynika z reguły dobra luksusowego; AODP służy tylko do znalezienia najtańszej oferty zakupu. Skup miejski nie ogranicza partii.','The fixed sell payout comes from the luxury-good rule; AODP is used only to find the cheapest purchase offer. City buyback does not cap the batch.'):o.dest==='Black Market'?tr('Dla Black Market publiczna historia AODP nie daje porównywalnego wolumenu aktualnego buy orderu, dlatego wolumen sprzedaży celu i sugerowana partia są oznaczone jako brak.','For Black Market, public AODP history does not provide comparable current buy-order volume, so destination sell volume and suggested quantity are unavailable.'):tr('Wolumen źródła i celu jest liczony osobno z historii sell-side AODP. Bezpieczny wolumen to minimum średniej 7d i mediany dziennej 7d. Pole Zabierz ogranicza partia możliwa do kupna wg skali źródła, planowany udział sprzedaży w mieście docelowym, budżet i limit sztuk. To nadal nie jest bieżąca głębokość order booka.','Source and destination volume are calculated separately from AODP sell-side history. Safe daily volume is the lower of the 7-day average and 7-day daily median. Take quantity is capped by source-market scale, the selected share of destination sales, budget and max units. This is still not current order-book depth.'),quoteCaveat=o.fixedPayout?tr('Czas obok ceny zakupu pochodzi z AODP; cena sprzedaży jest stałą wartością dobra w grze.','The buy time comes from AODP; the sell price is the item’s fixed in-game payout.'):tr('Każda cena jest ostatnim odczytem AODP z czasu pokazanego obok, a nie gwarantowaną ceną bieżącą w grze.','Each price is the latest AODP observation from the displayed time, not a guaranteed current in-game price.');el('detailNote').innerHTML=`${tr('Kup','Buy')}: <b>${fmt(o.buy)}</b> — ${esc(marketLabel(o.source))}. ${tr('Odczyt','Observed')}: <b>${esc(quoteTimestampText(o.sourceDate))}</b>.<br>${tr('Sprzedaj','Sell')}: <b>${fmt(o.sell)}</b> — ${esc(marketLabel(o.dest))}. ${tr('Podstawa','Basis')}: <b>${esc(saleTimestampText(o))}</b>.<br>${tr('Zysk po opłatach','Profit after fees')}: <b class="profit">+${fmt(o.profit)}</b> / ${tr('szt.','unit')}.<br>${tr('Interpretacja v5.5.2','v5.5.2 interpretation')}: <b>${Number.isFinite(r.score)?r.score+'/100':'—'}</b> — ${esc(r.label||tr('brak oceny','not rated'))}. ${Number.isFinite(r.repeatableProfit)?`${tr('Historyczny spread 7d po opłatach','7d historical spread after fees')}: <b class="${r.repeatableProfit>0?'profit':''}">${fmt(r.repeatableProfit)}</b> / ${tr('szt.','unit')}.`:''}<br><span class="muted">${o.priceGuard?.sourceWarning?`<b>${tr('Uwaga: bardzo niska cena zakupu została zachowana, ale wymaga sprawdzenia w grze.','Warning: the extremely low buy price was kept, but should be verified in-game.')}</b> `:''}${esc(note)} ${esc(quoteCaveat)}</span>`;el('detailDialog').showModal();
 }
 function drawChart(data,current){const svg=el('historyChart'),pts=(data||[]).map(x=>({p:+x.avg_price,t:parseHistoryTime(x.timestamp)})).filter(x=>x.p>0&&Number.isFinite(x.t)).sort((a,b)=>a.t-b.t);if(!pts.length){svg.innerHTML=`<text x="440" y="110" text-anchor="middle" fill="#8392a8" font-size="13">${tr('Brak historii dla tego sygnału.','No history for this signal.')}</text>`;return;}const w=880,h=220,pad=25,min=Math.min(...pts.map(x=>x.p),current),max=Math.max(...pts.map(x=>x.p),current),span=Math.max(1,max-min),x=i=>pad+i*(w-pad*2)/Math.max(1,pts.length-1),y=v=>h-pad-(v-min)/span*(h-pad*2),path=pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p.p).toFixed(1)).join(' '),cy=y(current);svg.innerHTML=`<line x1="${pad}" y1="${cy}" x2="${w-pad}" y2="${cy}" stroke="#d6a84b" stroke-dasharray="6 5" opacity=".7"/><path d="${path}" fill="none" stroke="#64b5f6" stroke-width="2.5"/><text x="${pad}" y="17" fill="#93a3b8" font-size="11">${tr('30 dni','30 days')} • AODP sell history</text><text x="${w-pad}" y="${Math.max(15,cy-6)}" text-anchor="end" fill="#d6a84b" font-size="11">${tr('zakup','buy')} ${fmt(current)}</text>`;}
 
@@ -721,7 +729,7 @@ async function exportDB(){
   const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};
   for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);
   const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=u;a.download=`albion-local-db-v5_5_1-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  a.href=u;a.download=`albion-local-db-v5_5_2-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 async function importDBFile(file){
   const txt=await file.text(),j=JSON.parse(txt);
@@ -786,7 +794,8 @@ function bind(){
 async function init(){
   try{
     renderMarkets();renderCategories(CATEGORY_LEAVES);bind();
-    await openLocalDB();setDbStatus(tr('gotowa','ready'));
+    try{await openLocalDB();setDbStatus(tr('gotowa','ready'));}
+    catch(dbError){db=null;console.warn('IndexedDB fallback',dbError);setDbStatus(tr('tryb pamięci','memory mode'),false);}
     const w=await dbGetAll('watchlist');state.watched=new Set(w.map(x=>x.itemId));
     await loadSettings();await updateDbInfo();
     setProgress(3,tr('Ładowanie bazy przedmiotów…','Loading item database…'));
@@ -806,7 +815,7 @@ function exportCsv(){
   const rows=filteredResults();if(!rows.length)return;
   const cols=['item_id','name','quality','mode','buy_market','buy_price','buy_price_timestamp_utc','sell_market','sell_price','sell_price_timestamp_utc','sell_price_basis','top_quote_profit_unit','market_reality_score','market_reality_grade','data_completeness_pct','buy_ref_7d','sell_ref_7d','buy_price_age_h','sell_price_age_h','historical_profit_unit','source_extreme_low_warning','best_source','best_destination','source_avg_7d_day','source_safe_day','destination_avg_7d_day','destination_safe_day','route_safe_day','target_market_share_pct','source_cap_units','destination_cap_units','suggested_take_units','planned_capital','bulk_tax_total','bulk_setup_total','bulk_transport_total','bulk_effective_profit_unit','estimated_sell_days','estimated_trip_profit','profit_x_route_scale_day'];
   const lines=[cols.join(';'),...rows.map(o=>{const v=o.volume||{},b=o.bulk||bulkPlanFor(o,cfgFromUI());return [o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),o.sourceDate||'',marketLabel(o.dest),Math.round(o.sell),o.destDate||'',o.fixedPayout?'fixed_in_game':'aodp_quote',Math.round(o.profit),o.reality?.score??'',o.reality?.grade??'',o.reality?.dataCompleteness??'',Number.isFinite(o.reality?.buyRef)?Math.round(o.reality.buyRef):'',Number.isFinite(o.reality?.sellRef)?Math.round(o.reality.sellRef):'',Number.isFinite(o.reality?.buyAge)?o.reality.buyAge.toFixed(2):'',Number.isFinite(o.reality?.sellAge)?o.reality.sellAge.toFixed(2):'',Number.isFinite(o.reality?.repeatableProfit)?Math.round(o.reality.repeatableProfit):'',o.priceGuard?.sourceWarning?'yes':'',o.bestSource?'yes':'',o.bestDestination?'yes':'',Number.isFinite(v.buyDaily)?v.buyDaily.toFixed(2):'',Number.isFinite(v.sourceSafeDaily)?v.sourceSafeDaily.toFixed(2):'',Number.isFinite(v.sellDaily)?v.sellDaily.toFixed(2):'',Number.isFinite(v.destinationSafeDaily)?v.destinationSafeDaily.toFixed(2):'',Number.isFinite(v.routeSafeDaily)?v.routeSafeDaily.toFixed(2):'',Math.round((b.volumeShare||0)*100),b.sourceCap??'',b.destinationCap??'',b.qty||0,Math.round(b.capital||0),Math.round(b.taxTotal||0),Math.round(b.setupTotal||0),Math.round(b.transportTotal||0),Number.isFinite(b.effectiveProfitUnit)?b.effectiveProfitUnit.toFixed(2):'',Number.isFinite(b.daysAtVolume)?b.daysAtVolume.toFixed(2):'',Math.round(b.totalProfit||0),Math.round(o.profitVolumeDaily||0)].map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(';');})];
-  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_5_1.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_5_2.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 init();
 })();

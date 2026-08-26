@@ -1,4 +1,18 @@
-# Albion Europe Market Scanner v5.5.1 — szybkie odświeżanie rafinacji
+# Albion Europe Market Scanner v5.5.2 — bezpieczny start na Safari/iOS
+
+## Zmiana v5.5.2
+
+Błąd lub blokada IndexedDB nie zatrzymuje już całej aplikacji. Jeśli Safari nie może otworzyć lokalnej bazy, skaner przechodzi do pamięci tymczasowej, nadal pobiera katalog przedmiotów, sprawdza AODP i pozwala wykonać skan. Dane z takiej sesji nie są zachowywane po zamknięciu karty, ale funkcje rynkowe pozostają dostępne.
+
+- limit czasu otwierania lokalnej bazy: 8 sekund,
+- obsługa bazy zablokowanej przez inną kartę,
+- automatyczne zamknięcie starego połączenia przy zmianie wersji,
+- awaryjne magazyny w pamięci dla przedmiotów, cen, historii, ustawień i wyników,
+- czytelny status `tryb pamięci` zamiast przerwania inicjalizacji.
+
+## Funkcje odziedziczone z v5.5.1
+
+## Szybkie odświeżanie v5.5.1
 
 ## Zmiana v5.5.1
 
