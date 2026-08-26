@@ -1,4 +1,36 @@
-# Albion Europe Market Scanner v5.4.8 — stała wartość dóbr luksusowych
+# Albion Europe Market Scanner v5.5.1 — szybkie odświeżanie rafinacji
+
+## Zmiana v5.5.1
+
+Po pierwszym pełnym skanie modułu rafinacji dostępny jest przycisk `Odśwież ceny`. Użytkownik wybiera 10, 30, 50 albo wszystkie obecne wyniki. Moduł pobiera wyłącznie przedmioty używane przez wybrane pozycje, zastępuje ich stare rekordy nową odpowiedzią AODP i ponownie liczy cały ranking z zapisanych danych.
+
+- pierwszy skan nadal musi być pełny i ręczny,
+- domyślnie odświeżanych jest 30 najbardziej zyskownych pozycji,
+- wyniki poza zakresem odświeżenia zachowują wcześniejsze ceny i godziny,
+- udana odpowiedź bez ceny usuwa poprzednią cenę danego przedmiotu i miasta,
+- zmiana surowców, tierów, enchantów lub miast wymaga nowego pełnego skanu,
+- zmiana focusu, podatku, partii, opłaty stacji albo transportu przelicza wyniki lokalnie bez pobierania cen.
+
+## Funkcje odziedziczone z v5.5.0
+
+## Nowy moduł v5.5.0
+
+Strona `refining.html` jest osobnym kalkulatorem opłacalności rafinacji dla drewna, włókna, skór, rudy i kamienia. Obejmuje T2–T8 oraz enchanty `.0–.4`, automatycznie przypisuje właściwe miasto z premią, wyszukuje osobno najtańsze miasto zakupu surowca i materiału poprzedniego tieru, a następnie wybiera najlepszy rynek sprzedaży gotowego materiału.
+
+Moduł uwzględnia:
+
+- podstawową premię miasta i premię właściwego miasta rafinacji,
+- opcjonalny focus i dzienny bonus +10% / +20%,
+- sprzedaż natychmiastową albo przez sell order,
+- podatek Premium / bez Premium, setup fee i undercut,
+- ręcznie wpisywaną opłatę stacji i transport na gotową sztukę,
+- pełne materiały do pierwszej partii oraz oczekiwane zużycie po zwrotach,
+- kapitał pierwszej partii, zysk jednostkowy, ROI i profit całej partii,
+- czas każdego użytego notowania AODP.
+
+Pierwszy skan kalkulatora zawsze uruchamia się ręcznie.
+
+## Funkcje odziedziczone z v5.4.8
 
 ## Najważniejsza zmiana v5.4.8
 
@@ -20,11 +52,11 @@ Szczegóły zmiany: `AUDIT-V5.4.8-LUXURY-FIXED-VALUE.md`.
 
 ## Funkcje odziedziczone z v5.4.7
 
-Naprawiono kategorię `Dobra luksusowe`. Przedmioty te mają identyfikatory `TREASURE_...`, a nie standardowe identyfikatory `T4_–T8_`, dlatego poprzedni filtr odrzucał je przed wysłaniem zapytań do AODP. v5.4.8 rozpoznaje 21 dóbr luksusowych z rodzin Knowledge, Silverware, Decorative, Ceremonial, Tribal, Ritual i Avalon. Są dostępne przy ustawieniu `Tier = Wszystkie`.
+Naprawiono kategorię `Dobra luksusowe`. Przedmioty te mają identyfikatory `TREASURE_...`, a nie standardowe identyfikatory `T4_–T8_`, dlatego poprzedni filtr odrzucał je przed wysłaniem zapytań do AODP. v5.4.7 rozpoznaje 21 dóbr luksusowych z rodzin Knowledge, Silverware, Decorative, Ceremonial, Tribal, Ritual i Avalon. Są dostępne przy ustawieniu `Tier = Wszystkie`.
 
 Kliknięcie nagłówka `Cena kupna` sortuje teraz według czasu odczytu ceny zakupu, a kliknięcie `Cena sprzedaży` — według czasu odczytu ceny sprzedaży. Pierwsze kliknięcie pokazuje najnowsze odczyty, drugie odwraca kolejność. Wysokość ceny nie jest kryterium tych dwóch kolumn.
 
-Szczegóły zmiany: `AUDIT-V5.4.8-LUXURY-TIME-SORT.md`.
+Szczegóły zmiany: `AUDIT-V5.4.7-LUXURY-TIME-SORT.md`.
 
 ## Funkcje odziedziczone z v5.4.6
 

@@ -1,12 +1,12 @@
 {
-  "name": "Albion Europe Market Scanner v5.4.8 Luxury Goods",
-  "short_name": "Albion Market v5.4.8",
+  "name": "Albion Europe Market Scanner v5.5.1 Refining",
+  "short_name": "Albion Market v5.5.1",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0b0e13",
   "theme_color": "#0b0e13",
-  "description": "Albion Online Europe market scanner showing profitable buy/sell routes with separate source and destination historical volume plus suggested transport quantity, with PL/EN and IndexedDB.",
+  "description": "Albion Online Europe market scanner with fixed-value luxury goods and a refining profitability module for all resources, tiers and cities.",
   "icons": [
     {
       "src": "./icon.svg",
