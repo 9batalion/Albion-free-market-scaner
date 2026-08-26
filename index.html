@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<title>Albion Europe Market Scanner v5.5.5 — Handel i rafinacja</title>
+<title>Albion Europe Market Scanner v5.5.6 — Handel i rafinacja</title>
 <style>
     :root{
       --bg:#0b0e13;--panel:#111722;--panel2:#171f2c;--line:#263244;--text:#eef3f8;--muted:#93a3b8;
@@ -19,6 +19,7 @@
   .result-filter-grid.simple-two{grid-template-columns:repeat(2,minmax(0,1fr))}@media(max-width:700px){.result-filter-grid.simple-two{grid-template-columns:1fr}}
   .quote-time{max-width:none;overflow:visible;text-overflow:clip;white-space:nowrap;line-height:1.35;margin-top:2px}
   .detail-card b.quote-time-detail{font-size:12px;line-height:1.4;font-weight:600}
+  .coverage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;flex-wrap:wrap}.coverage-head h2{font-size:15px;margin:0}.coverage-head p{margin:4px 0 0;color:var(--muted);font-size:11px}.coverage-table{min-width:1180px}.coverage-table td{vertical-align:top}.coverage-price{font-weight:800}.coverage-empty{padding:24px;color:var(--muted);text-align:center}.coverage-summary{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 12px}
 </style>
 <meta content="#0b0e13" name="theme-color"/>
 <link href="./manifest.webmanifest" rel="manifest"/>
@@ -28,7 +29,7 @@
 <div class="app">
 <div class="topbar">
 <div class="brand">
-<h1>Albion Europe Market Scanner v5.5.5 — Handel i rafinacja</h1>
+<h1>Albion Europe Market Scanner v5.5.6 — Handel i rafinacja</h1>
 <p>Europe • AODP API • najtańsze miejsce zakupu dóbr • stałe ceny miast • czas odczytu oferty • PL/EN • IndexedDB • GitHub Pages / PWA</p>
 </div>
 <div class="status">
@@ -64,6 +65,7 @@
 <button class="btn" id="equipmentCategories">Tylko ekwipunek</button>
 <button class="btn" id="bulkMaterialsCategories">Runy / dusze / relikty</button>
 <button class="btn" id="smallGoodsCategories">Drobne towary</button>
+<button class="btn" id="t3ResourcesCategories">Wszystkie surowce T3</button>
 </div>
 <div class="category-groups" id="categories"></div>
 </details>
@@ -104,7 +106,8 @@
 <div class="section">
 <h3>Handel hurtowy / Mamut</h3>
 <div class="tiny" style="margin-bottom:9px">Plan ilości wykorzystuje osobno historyczną skalę rynku zakupu i rynku docelowej sprzedaży. Nie zakłada, że cała liczba sztuk jest dostępna dokładnie po najniższej cenie z API.</div>
-<div class="actions"><button class="btn primary" id="bulkRunePreset">Preset: runy / dusze / relikty</button></div>
+<div class="actions"><button class="btn primary" id="bulkRunePreset">Preset: runy / dusze / relikty</button><button class="btn primary" id="t3ResourcesPreset">Preset: wszystkie surowce T3</button></div>
+<div class="tiny" style="margin-top:7px">Preset T3 wybiera surowce podstawowe i przetworzone, wszystkie ulepszenia, główne miasta oraz limit 0. <b>Nie uruchamia skanu</b> — pierwszy skan nadal wykonujesz ręcznie.</div>
 <div class="row2">
 <div class="field"><label>Budżet na jedną trasę (silver)</label><input id="bulkBudget" min="0" step="10000" type="number" value="5000000"/></div>
 <div class="field"><label>Profil partii</label><select id="bulkRiskProfile"><option value="safe">Bezpieczny — 10%</option><option selected="" value="normal">Normalny — 20%</option><option value="aggressive">Agresywny — 35%</option><option value="maximum">Maksymalny — 50%</option><option value="custom">Własny</option></select></div>
@@ -143,6 +146,12 @@
 </aside>
 <main class="main">
 <div class="kpis"><div class="panel kpi"><span>Okazje</span><strong id="kpiCount">0</strong><small>po filtrach cena + wolumen</small></div><div class="panel kpi"><span>Najlepszy zysk</span><strong id="kpiProfit">0</strong><small>top quote / szt.</small></div><div class="panel kpi"><span>Największy wolumen celu</span><strong id="kpiVolume">—</strong><small>bezpieczna sprzedaż / dzień</small></div><div class="panel kpi"><span>Najlepszy obrót zysku</span><strong id="kpiTradeProfit">0</strong><small>zysk × wolumen / dzień</small></div><div class="panel kpi"><span>Wybrane do skanu</span><strong id="kpiItems">0</strong><small id="kpiItemsMeta">0 rekordów API</small></div><div class="panel kpi"><span>Rekordy z wolumenem</span><strong id="kpiVolumeRows">0</strong><small>okazji z historią</small></div></div>
+
+<section class="panel" hidden id="t3CoverageSection" style="margin-bottom:12px">
+<div class="coverage-head"><div><h2>Pełna kontrola surowców T3</h2><p>Każdy wybrany surowiec T3 jest pokazany także bez ceny, kompletnej trasy lub dodatniego zysku.</p></div><button class="btn" id="exportT3Btn">Eksportuj wszystkie surowce T3</button></div>
+<div class="coverage-summary" id="t3CoverageSummary"></div>
+<div class="table-wrap" style="max-height:430px"><table class="coverage-table"><thead><tr><th>Przedmiot</th><th>Rodzaj</th><th>Ulepszenie</th><th>Najtańszy zakup</th><th>Czas ceny zakupu</th><th>Najwyższy buy order</th><th>Czas buy orderu</th><th>Najlepsza zyskowna trasa</th><th>Status</th></tr></thead><tbody id="t3CoverageBody"></tbody></table><div class="coverage-empty" hidden id="t3CoverageEmpty">Brak surowców T3 w bieżącym zakresie skanu.</div></div>
+</section>
 
 <section class="panel">
 <div class="result-filters">
@@ -210,7 +219,7 @@ const DB_VERSION=15;
 const ITEM_CATALOG_SCHEMA=2;
 const DB_STORES=['items','prices','history','watchlist','settings','opportunities','scan_runs'];
 const el = id => document.getElementById(id);
-const state = {items:[],itemById:new Map(),raw:[],opportunities:[],stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0},manualScanUnlocked:false,sortDirection:'desc'};
+const state = {items:[],itemById:new Map(),raw:[],opportunities:[],t3ResourceCoverage:[],t3FailedPriceIds:new Set(),stop:false,watched:new Set(),history:new Map(),scanId:0,watchOnly:false,lastApiOk:false,lang:'pl',scanDiagnostics:null,page:1,pageSize:100,volumeFailures:new Set(),volumeStats:{jobs:0,errors:0},manualScanUnlocked:false,sortDirection:'desc'};
 let db=null,settingsTimer=null,autoTimer=null,memoryAutoId=0;
 const memoryStores=new Map(['items','prices','history','watchlist','settings','opportunities','scan_runs'].map(name=>[name,new Map()]));
 
@@ -423,7 +432,7 @@ function translateDynamic(s){
 }
 function applyLanguage(lang,persist=true){
   state.lang=lang==='en'?'en':'pl';document.documentElement.lang=state.lang;if(el('languageSelect'))el('languageSelect').value=state.lang;
-  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.5.5 — Trading and Refining':'Albion Europe Market Scanner v5.5.5 — Handel i rafinacja';
+  document.title=state.lang==='en'?'Albion Europe Market Scanner v5.5.6 — Trading and Refining':'Albion Europe Market Scanner v5.5.6 — Handel i rafinacja';
   if(el('itemQuery'))el('itemQuery').placeholder=tr('np. Bag, T6_BAG, peleryna…','e.g. Bag, T6_BAG, cape…');
   if(el('resultSearch'))el('resultSearch').placeholder=tr('Filtruj wyniki po nazwie, ID lub mieście…','Filter results by name, ID or city…');
   const catSelection=selectedCategories();renderCategories(catSelection);translateTextNodes(document.body);updateCategorySummary();render();if(db)updateDbInfo().catch(()=>{});if(persist&&db)queueSaveSettings();
@@ -493,6 +502,19 @@ function setItems(items){state.items=items;state.itemById=new Map(items.map(x=>[
 function itemDisplayName(item){if(!item)return'';return state.lang==='en'?(item.nameEn||item.name||item.namePl||item.id):(item.namePl||item.name||item.nameEn||item.id);}
 function displayItemNameById(id,fallback=''){return itemDisplayName(state.itemById.get(id))||fallback||id;}
 function displayOpportunityName(o){return displayItemNameById(o.itemId,state.lang==='en'?(o.itemNameEn||o.itemName):(o.itemNamePl||o.itemName));}
+function isT3ResourceId(id){const te=itemTierEnchant(id),cat=categoryForItem(id);return te.tier===3&&(cat==='rawResources'||cat==='refinedResources');}
+function resourceTypeLabel(id){return categoryForItem(id)==='rawResources'?tr('podstawowy','raw'):tr('przetworzony','refined');}
+function bestPriceRow(rows,field,direction){return (rows||[]).filter(r=>(+r[field]||0)>0).sort((a,b)=>direction*((+a[field]||0)-(+b[field]||0))||(parseAodpTime(b[field+'_date'])||0)-(parseAodpTime(a[field+'_date'])||0))[0]||null;}
+function buildT3ResourceCoverage(items,rows,failedIds=new Set(),opportunities=[],scanned=true){
+  const byItem=new Map();for(const r of rows||[]){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}
+  const opsByItem=new Map();for(const o of opportunities||[]){if(!opsByItem.has(o.itemId)||(+o.profit||0)>(+opsByItem.get(o.itemId).profit||0))opsByItem.set(o.itemId,o);}
+  return (items||[]).filter(x=>isT3ResourceId(x.id)).map(item=>{
+    const itemRows=byItem.get(item.id)||[],buy=bestPriceRow(itemRows,'sell_price_min',1),instantSell=bestPriceRow(itemRows,'buy_price_max',-1),opportunity=opsByItem.get(item.id)||null;
+    const timestamps=[buy?.sell_price_min_date,instantSell?.buy_price_max_date].map(parseAodpTime).filter(Number.isFinite),newestTs=timestamps.length?Math.max(...timestamps):0;
+    let status='pending';if(scanned){if(failedIds.has(item.id)&&(buy||instantSell))status='cache-api-error';else if(failedIds.has(item.id))status='api-error';else if(!buy&&!instantSell)status='no-prices';else if(opportunity)status='profitable';else if(!buy)status='no-purchase-price';else status='no-profit';}
+    return{itemId:item.id,item,buy,instantSell,opportunity,status,newestTs,quoteRows:itemRows.length};
+  }).sort((a,b)=>b.newestTs-a.newestTs||a.itemId.localeCompare(b.itemId));
+}
 
 function setProgress(p,text){el('progressBar').style.width=clamp(p)+'%';el('progressText').textContent=text;}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
@@ -784,7 +806,7 @@ function attachSimpleVolume(o,cache,failedKeys=new Set()){
 }
 async function enrichAllVolume(force=false){
   if(!state.opportunities.length)return;const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value];el('validateBtn').disabled=true;el('validateBtn').innerHTML=`<span class="spinner"></span>${tr('Wolumen…','Volume…')}`;
-  try{const result=await loadVolumeHistoriesForOpportunities(state.opportunities,qualities,force);state.volumeFailures=result.failedKeys;state.volumeStats={jobs:result.jobs,errors:result.errors};for(const o of state.opportunities)attachSimpleVolume(o,result.cache,result.failedKeys);const before=state.opportunities.length;state.opportunities=state.opportunities.filter(o=>!o.invalidPrice);markRouteRanks(state.opportunities);const removed=before-state.opportunities.length;if(state.scanDiagnostics)state.scanDiagnostics.historyPriceAnomalies=(state.scanDiagnostics.historyPriceAnomalies||0)+removed;await saveOpportunities(state.opportunities);state.page=1;render();await updateDbInfo();}finally{el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Odśwież wolumen','Refresh volume');}
+  try{const result=await loadVolumeHistoriesForOpportunities(state.opportunities,qualities,force);state.volumeFailures=result.failedKeys;state.volumeStats={jobs:result.jobs,errors:result.errors};for(const o of state.opportunities)attachSimpleVolume(o,result.cache,result.failedKeys);const before=state.opportunities.length;state.opportunities=state.opportunities.filter(o=>!o.invalidPrice);markRouteRanks(state.opportunities);const removed=before-state.opportunities.length;if(state.scanDiagnostics)state.scanDiagnostics.historyPriceAnomalies=(state.scanDiagnostics.historyPriceAnomalies||0)+removed;const coverageItems=state.t3ResourceCoverage.map(x=>x.item);state.t3ResourceCoverage=buildT3ResourceCoverage(coverageItems,state.raw,state.t3FailedPriceIds,state.opportunities,true);await saveOpportunities(state.opportunities);state.page=1;render();await updateDbInfo();}finally{el('validateBtn').disabled=false;el('validateBtn').textContent=tr('Odśwież wolumen','Refresh volume');}
 }
 
 function diagnosticTotals(){
@@ -811,17 +833,17 @@ async function scan(opts={}){
   const onlyLuxury=items.every(x=>isLuxuryGoodId(x.id)),markets=selectedMarkets(),minimumMarkets=onlyLuxury?1:2;if(markets.length<minimumMarkets){if(!opts.auto)alert(onlyLuxury?tr('Wybierz co najmniej jeden market zakupu.','Select at least one purchase market.'):tr('Wybierz co najmniej dwa markety.','Select at least two markets.'));return;}
   if(!onlyLuxury&&el('excludeSame').checked&&el('startCity').value!=='all'&&el('startCity').value===el('destinationCity').value){if(!opts.auto)alert(tr('Miasto startowe i docelowe muszą być różne.','Starting and destination cities must be different.'));return;}
   if(!opts.auto){state.manualScanUnlocked=true;scheduleAuto();}
-  state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;
+  state.scanDiagnostics={selectedItems:items.length,matchingItems:countMatchingItems(),apiRows:0,itemsWithRows:0,modes:{}};state.volumeStats={jobs:0,errors:0};state.volumeFailures.clear();state.page=1;state.t3ResourceCoverage=buildT3ResourceCoverage(items,[],new Set(),[],false);renderT3ResourceCoverage();
   const qualities=el('quality').value==='all'?[1,2,3,4,5]:[+el('quality').value],batches=batchesByUrl(items,markets,qualities),scanId=++state.scanId;state.stop=false;state.raw=[];state.opportunities=[];el('scanBtn').disabled=true;el('stopBtn').disabled=false;el('validateBtn').disabled=true;setProgress(0,state.lang==='en'?`${opts.auto?'Auto-scan':'Start'}: ${fmt(items.length)} items…`:`${opts.auto?'Auto-skan':'Start'}: ${fmt(items.length)} przedmiotów…`);
-  const normalizedFresh=[];const failedPriceItemIds=new Set();let errors=0,processedItems=0,rawApiRows=0,usefulApiRows=0;
+  const normalizedFresh=[];const failedPriceItemIds=new Set();state.t3FailedPriceIds=failedPriceItemIds;let errors=0,processedItems=0,rawApiRows=0,usefulApiRows=0;
   for(let i=0;i<batches.length;i++){if(state.stop||scanId!==state.scanId)break;const batch=batches[i];try{const j=await fetchPriceBatchRobust(batch,markets,qualities);rawApiRows+=Array.isArray(j)?j.length:0;const returned=Array.isArray(j)?j:[];if(returned.length){const saved=await persistPriceRows(returned);normalizedFresh.push(...saved);usefulApiRows+=saved.filter(r=>(+r.sell_price_min||0)>0||(+r.buy_price_max||0)>0||(+r.sell_price_max||0)>0||(+r.buy_price_min||0)>0).length;}state.lastApiOk=true;el('apiStatus').textContent='online';el('apiStatus').style.color='var(--good)';}catch{errors++;for(const it of batch)failedPriceItemIds.add(it.id);state.lastApiOk=false;el('apiStatus').textContent=navigator.onLine?tr('częściowy błąd','partial error'):'offline';el('apiStatus').style.color='var(--bad)';}processedItems+=batch.length;state.scanDiagnostics.apiRows=usefulApiRows;setProgress((i+1)/batches.length*70,state.lang==='en'?`Prices: ${fmt(processedItems)} / ${fmt(items.length)} items • batch ${i+1}/${batches.length} • useful rows ${fmt(usefulApiRows)}`:`Ceny: ${fmt(processedItems)} / ${fmt(items.length)} przedmiotów • partia ${i+1}/${batches.length} • użyteczne rekordy ${fmt(usefulApiRows)}`);}
   state.scanDiagnostics.apiRows=usefulApiRows;state.scanDiagnostics.rawApiRows=rawApiRows;
   // Cache is allowed ONLY for item IDs belonging to a price batch that actually failed.
   // A successful zero/no-order response therefore cannot resurrect an older positive quote from local.db.
   let cached=[];if(el('useCache').checked&&failedPriceItemIds.size){const failedItems=items.filter(x=>failedPriceItemIds.has(x.id));cached=await cachedRowsFor(failedItems,markets,qualities);}const rows=mergeRows(normalizedFresh,cached);state.raw=rows;
-  if(!rows.length){el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,tr('Brak danych API i brak lokalnego cache.','No API data and no local cache.'));await updateDbInfo();return;}
+  if(!rows.length){state.t3ResourceCoverage=buildT3ResourceCoverage(items,[],failedPriceItemIds,[],true);el('scanBtn').disabled=false;el('stopBtn').disabled=true;setProgress(0,tr('Brak danych API i brak lokalnego cache.','No API data and no local cache.'));render();await updateDbInfo();return;}
   const map=new Map(items.map(x=>[x.id,x])),byItem=new Map();for(const r of rows){if(!byItem.has(r.item_id))byItem.set(r.item_id,[]);byItem.get(r.item_id).push(r);}
-  const cfg=cfgFromUI();state.opportunities=calcOpportunities(byItem,map,el('mode').value,cfg);markRouteRanks(state.opportunities);render();renderScanDiagnostics();
+  const cfg=cfgFromUI();state.opportunities=calcOpportunities(byItem,map,el('mode').value,cfg);markRouteRanks(state.opportunities);state.t3ResourceCoverage=buildT3ResourceCoverage(items,rows,failedPriceItemIds,state.opportunities,true);render();renderScanDiagnostics();
   if(!state.stop&&state.opportunities.length){setProgress(74,state.lang==='en'?`Found ${fmt(state.opportunities.length)} profitable routes. Loading volume…`:`Znaleziono ${fmt(state.opportunities.length)} zyskownych tras. Pobieram wolumen…`);await enrichAllVolume(false);}else await saveOpportunities(state.opportunities);
   await dbPut('scan_runs',{ts:now(),items:items.length,markets,qualities,apiRows:usefulApiRows,rawApiRows,cacheRows:cached.length,failedPriceItems:failedPriceItemIds.size,errors,opportunities:state.opportunities.length,auto:!!opts.auto});
   el('kpiItems').textContent=fmt(items.length);el('lastScan').textContent=new Date().toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'});el('scanBtn').disabled=false;el('stopBtn').disabled=true;el('validateBtn').disabled=state.opportunities.length===0;renderScanDiagnostics();setProgress(100,state.stop?tr('Skan przerwany.','Scan stopped.'):(state.lang==='en'?`Done: ${fmt(state.opportunities.length)} profitable routes with prices and volume.`:`Gotowe: ${fmt(state.opportunities.length)} zyskownych tras z cenami i wolumenem.`));await updateDbInfo();render();await saveSettings();
@@ -861,6 +883,26 @@ function applyBulkPreset(){
   el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';if(el('bulkRiskProfile'))el('bulkRiskProfile').value='normal';el('bulkVolumeShare').value='20';el('sortBy').value='freshness';state.sortDirection='desc';state.page=1;queueSaveSettings();render();
   setProgress(0,tr('Preset hurtowy gotowy — uruchom skan.','Bulk preset ready — run the scan.'));
 }
+function applyT3ResourcesPreset(){
+  setSelectedCategories(['rawResources','refinedResources']);
+  el('itemQuery').value='';el('tier').value='3';el('enchant').value='all';el('quality').value='1';el('mode').value='smart';el('scanLimit').value='0';el('startCity').value='all';el('destinationCity').value='all';el('excludeSame').checked=true;
+  document.querySelectorAll('.marketCheck').forEach(x=>{const market=MARKETS.find(m=>m.api===x.value);x.checked=!!market?.royal;});
+  el('maxBuyPrice').value='0';el('minProfit').value='0';el('minVolumeDay').value='0';el('sortBy').value='freshness';state.sortDirection='desc';state.page=1;
+  state.t3ResourceCoverage=buildT3ResourceCoverage(buildItemSelection(),[],new Set(),[],false);queueSaveSettings();render();
+  setProgress(0,tr(`Preset T3 gotowy: ${fmt(state.t3ResourceCoverage.length)} surowców. Kliknij „Skanuj” ręcznie.`,`T3 preset ready: ${fmt(state.t3ResourceCoverage.length)} resources. Click Scan manually.`));
+}
+
+function t3CoverageStatus(row){
+  const labels={pending:[tr('oczekuje na ręczny skan','waiting for manual scan'),'info'],profitable:[tr('zyskowna trasa','profitable route'),'good'],'no-profit':[tr('cena jest, brak dodatniego zysku','priced, no positive profit'),'warn'],'no-prices':[tr('brak ceny w AODP','no AODP price'),'bad'],'no-purchase-price':[tr('brak ceny zakupu','no purchase price'),'bad'],'cache-api-error':[tr('cena z cache — błąd API','cached price — API error'),'warn'],'api-error':[tr('błąd API dla produktu','item API error'),'bad']};
+  return labels[row.status]||[row.status,'info'];
+}
+function renderT3ResourceCoverage(){
+  const section=el('t3CoverageSection');if(!section)return;const rows=state.t3ResourceCoverage||[];section.hidden=!rows.length;if(!rows.length)return;
+  const counts={};for(const r of rows)counts[r.status]=(counts[r.status]||0)+1;
+  el('t3CoverageSummary').innerHTML=`<span class="tag info">${tr('Razem','Total')}: ${fmt(rows.length)}</span><span class="tag good">${tr('Zyskowne','Profitable')}: ${fmt(counts.profitable||0)}</span><span class="tag warn">${tr('Bez zysku','No profit')}: ${fmt(counts['no-profit']||0)}</span><span class="tag bad">${tr('Bez ceny / błąd','No price / error')}: ${fmt((counts['no-prices']||0)+(counts['no-purchase-price']||0)+(counts['api-error']||0)+(counts['cache-api-error']||0))}</span>`;
+  el('t3CoverageBody').innerHTML=rows.map(r=>{const te=itemTierEnchant(r.itemId),status=t3CoverageStatus(r),op=r.opportunity;return `<tr><td><div class="itemcell"><img loading="lazy" src="${itemIcon(r.itemId,1)}" alt=""><div><div class="itemname">${esc(itemDisplayName(r.item))}</div><div class="itemid">${esc(r.itemId)}</div></div></div></td><td>${esc(resourceTypeLabel(r.itemId))}</td><td>${te.enchant?'.'+te.enchant:'.0'}</td><td>${r.buy?`<span class="coverage-price">${fmt(r.buy.sell_price_min)}</span><div class="itemid">${esc(marketLabel(r.buy.city))}</div>`:'—'}</td><td>${r.buy?esc(quoteTimestampText(r.buy.sell_price_min_date)):'—'}</td><td>${r.instantSell?`<span class="coverage-price">${fmt(r.instantSell.buy_price_max)}</span><div class="itemid">${esc(marketLabel(r.instantSell.city))}</div>`:'—'}</td><td>${r.instantSell?esc(quoteTimestampText(r.instantSell.buy_price_max_date)):'—'}</td><td>${op?`<b>${esc(marketLabel(op.source))} → ${esc(marketLabel(op.dest))}</b><div class="profit">+${fmt(op.profit)} / szt.</div>`:'—'}</td><td><span class="tag ${status[1]}">${esc(status[0])}</span></td></tr>`;}).join('');
+  el('t3CoverageEmpty').hidden=!!rows.length;
+}
 
 function filteredResults(){
   let a=[...state.opportunities],q=el('resultSearch').value.trim().toLowerCase(),cfg=cfgFromUI();
@@ -881,6 +923,7 @@ function volumeFmt(v,status='fresh'){
 }
 function simpleModeLabel(o){if(o.fixedPayout)return tr('Dobro — stała cena','Luxury — fixed payout');if(o.dest==='Black Market')return 'Black Market';return o.mode==='instant'?tr('Do buy orderu','To buy order'):tr('Wystaw sell order','List sell order');}
 function render(){
+  renderT3ResourceCoverage();
   const all=filteredResults(),pageSize=Math.max(25,+el('pageSize')?.value||state.pageSize||100);state.pageSize=pageSize;
   const pages=Math.max(1,Math.ceil(all.length/pageSize));state.page=Math.max(1,Math.min(state.page,pages));const start=(state.page-1)*pageSize,pageRows=all.slice(start,start+pageSize);
   if(el('resultCountMeta'))el('resultCountMeta').textContent=state.lang==='en'?`${fmt(all.length)} shown / ${fmt(state.opportunities.length)} profitable routes • page ${state.page}/${pages}`:`${fmt(all.length)} pokazanych / ${fmt(state.opportunities.length)} zyskownych tras • strona ${state.page}/${pages}`;
@@ -917,7 +960,7 @@ async function exportDB(){
   const payload={format:'albion-market-local-db',version:DB_VERSION,exportedAt:new Date().toISOString(),stores:{}};
   for(const s of DB_STORES)payload.stores[s]=await dbGetAll(s);
   const blob=new Blob([JSON.stringify(payload)],{type:'application/json'}),u=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=u;a.download=`albion-local-db-v5_5_5-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  a.href=u;a.download=`albion-local-db-v5_5_6-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 async function importDBFile(file){
   const txt=await file.text(),j=JSON.parse(txt);
@@ -932,7 +975,7 @@ async function importDBFile(file){
 async function clearCache(){
   if(!confirm(tr('Wyczyścić ceny, historię wolumenu i zapisane okazje? Baza przedmiotów i ustawienia zostaną.','Clear prices, volume history and saved opportunities? Item database and settings will remain.')))return;
   for(const s of ['prices','history','opportunities','scan_runs'])await dbClear(s);
-  state.opportunities=[];state.history.clear();state.volumeFailures.clear();state.volumeStats={jobs:0,errors:0};state.page=1;
+  state.opportunities=[];state.t3ResourceCoverage=[];state.t3FailedPriceIds.clear();state.history.clear();state.volumeFailures.clear();state.volumeStats={jobs:0,errors:0};state.page=1;
   render();await updateDbInfo();setProgress(0,tr('Lokalny cache cen i wolumenu wyczyszczony.','Local price and volume cache cleared.'));
 }
 function scheduleAuto(){
@@ -946,6 +989,7 @@ function bind(){
   el('clearCategories').onclick=()=>{setSelectedCategories([]);queueSaveSettings();};
   el('equipmentCategories').onclick=()=>{setSelectedCategories([...EQUIPMENT_CATEGORIES]);queueSaveSettings();};
   el('bulkMaterialsCategories').onclick=()=>{setSelectedCategories(['bulkMaterials']);queueSaveSettings();};
+  if(el('t3ResourcesCategories'))el('t3ResourcesCategories').onclick=applyT3ResourcesPreset;
   el('smallGoodsCategories').onclick=()=>{setSelectedCategories([...SMALL_GOODS_CATEGORIES]);queueSaveSettings();};
   el('allMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=true);queueSaveSettings();};
   el('royalMarkets').onclick=()=>{document.querySelectorAll('.marketCheck').forEach(x=>x.checked=!!MARKETS.find(m=>m.api===x.value)?.royal);ensureRouteMarketsSelected();queueSaveSettings();};
@@ -958,11 +1002,13 @@ function bind(){
   if(el('bulkRiskProfile'))el('bulkRiskProfile').onchange=()=>{const map={safe:10,normal:20,aggressive:35,maximum:50};const v=map[el('bulkRiskProfile').value];if(v){el('bulkVolumeShare').value=String(v);state.page=1;render();queueSaveSettings();}};
   ['maxBuyPrice','minProfit','minVolumeDay','bulkBudget','bulkVolumeShare','bulkDays','bulkMaxQty'].forEach(id=>{const x=el(id);if(!x)return;x.oninput=()=>{if(id==='bulkVolumeShare'&&el('bulkRiskProfile'))el('bulkRiskProfile').value='custom';state.page=1;render();};x.onchange=()=>{if(id==='bulkVolumeShare'&&el('bulkRiskProfile'))el('bulkRiskProfile').value='custom';state.page=1;render();queueSaveSettings();};});
   if(el('bulkRunePreset'))el('bulkRunePreset').onclick=applyBulkPreset;
+  if(el('t3ResourcesPreset'))el('t3ResourcesPreset').onclick=applyT3ResourcesPreset;
   if(el('pageSize'))el('pageSize').onchange=()=>{state.page=1;state.pageSize=+el('pageSize').value||100;render();queueSaveSettings();};
   if(el('prevPage'))el('prevPage').onclick=()=>{state.page=Math.max(1,state.page-1);render();};
   if(el('nextPage'))el('nextPage').onclick=()=>{state.page++;render();};
   el('watchOnly').onclick=()=>{state.watchOnly=!state.watchOnly;el('watchOnly').textContent=state.watchOnly?tr('★ Wszystkie wyniki','★ All results'):tr('★ Obserwowane','★ Watched');render();};
   el('exportBtn').onclick=exportCsv;
+  if(el('exportT3Btn'))el('exportT3Btn').onclick=exportT3ResourcesCsv;
   el('closeDialog').onclick=()=>el('detailDialog').close();
   el('dbExportBtn').onclick=exportDB;
   el('dbImportBtn').onclick=()=>el('dbImportFile').click();
@@ -996,17 +1042,24 @@ async function init(){
     if(el('dbStatus'))el('dbStatus').textContent=tr('błąd','error');
     setProgress(0,tr('Błąd inicjalizacji: ','Initialization error: ')+(e?.message||e));
   }
-  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.5.5').catch(()=>{});
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js?v=5.5.6').catch(()=>{});
   if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});
 }
 function exportCsv(){
   const rows=filteredResults();if(!rows.length)return;
   const cols=['item_id','name','quality','mode','buy_market','buy_price','buy_price_timestamp_utc','sell_market','sell_price','sell_price_timestamp_utc','sell_price_basis','top_quote_profit_unit','market_reality_score','market_reality_grade','data_completeness_pct','buy_ref_7d','sell_ref_7d','buy_price_age_h','sell_price_age_h','historical_profit_unit','source_extreme_low_warning','best_source','best_destination','source_avg_7d_day','source_safe_day','destination_avg_7d_day','destination_safe_day','route_safe_day','target_market_share_pct','source_cap_units','destination_cap_units','suggested_take_units','planned_capital','bulk_tax_total','bulk_setup_total','bulk_transport_total','bulk_effective_profit_unit','estimated_sell_days','estimated_trip_profit','profit_x_route_scale_day'];
   const lines=[cols.join(';'),...rows.map(o=>{const v=o.volume||{},b=o.bulk||bulkPlanFor(o,cfgFromUI());return [o.itemId,displayOpportunityName(o),qualityName[o.quality],simpleModeLabel(o),marketLabel(o.source),Math.round(o.buy),o.sourceDate||'',marketLabel(o.dest),Math.round(o.sell),o.destDate||'',o.fixedPayout?'fixed_in_game':'aodp_quote',Math.round(o.profit),o.reality?.score??'',o.reality?.grade??'',o.reality?.dataCompleteness??'',Number.isFinite(o.reality?.buyRef)?Math.round(o.reality.buyRef):'',Number.isFinite(o.reality?.sellRef)?Math.round(o.reality.sellRef):'',Number.isFinite(o.reality?.buyAge)?o.reality.buyAge.toFixed(2):'',Number.isFinite(o.reality?.sellAge)?o.reality.sellAge.toFixed(2):'',Number.isFinite(o.reality?.repeatableProfit)?Math.round(o.reality.repeatableProfit):'',o.priceGuard?.sourceWarning?'yes':'',o.bestSource?'yes':'',o.bestDestination?'yes':'',Number.isFinite(v.buyDaily)?v.buyDaily.toFixed(2):'',Number.isFinite(v.sourceSafeDaily)?v.sourceSafeDaily.toFixed(2):'',Number.isFinite(v.sellDaily)?v.sellDaily.toFixed(2):'',Number.isFinite(v.destinationSafeDaily)?v.destinationSafeDaily.toFixed(2):'',Number.isFinite(v.routeSafeDaily)?v.routeSafeDaily.toFixed(2):'',Math.round((b.volumeShare||0)*100),b.sourceCap??'',b.destinationCap??'',b.qty||0,Math.round(b.capital||0),Math.round(b.taxTotal||0),Math.round(b.setupTotal||0),Math.round(b.transportTotal||0),Number.isFinite(b.effectiveProfitUnit)?b.effectiveProfitUnit.toFixed(2):'',Number.isFinite(b.daysAtVolume)?b.daysAtVolume.toFixed(2):'',Math.round(b.totalProfit||0),Math.round(o.profitVolumeDaily||0)].map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(';');})];
-  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_5_5.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_europe_bulk_trade_v5_5_6.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+}
+function exportT3ResourcesCsv(){
+  const rows=state.t3ResourceCoverage||[];if(!rows.length)return;
+  const cols=['item_id','name','resource_type','enchant','status','cheapest_buy_market','cheapest_buy_price','buy_price_timestamp_utc','best_buy_order_market','best_buy_order_price','buy_order_timestamp_utc','best_profitable_route','best_profit_unit','price_rows'];
+  const lines=[cols.join(';'),...rows.map(r=>{const op=r.opportunity;return[r.itemId,itemDisplayName(r.item),resourceTypeLabel(r.itemId),itemTierEnchant(r.itemId).enchant,t3CoverageStatus(r)[0],r.buy?.city||'',r.buy?.sell_price_min||'',r.buy?.sell_price_min_date||'',r.instantSell?.city||'',r.instantSell?.buy_price_max||'',r.instantSell?.buy_price_max_date||'',op?`${op.source} -> ${op.dest}`:'',op?.profit??'',r.quoteRows||0].map(x=>'"'+String(x??'').replaceAll('"','""')+'"').join(';');})];
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'}),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='albion_all_t3_resources_v5_5_6.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
 }
 init();
 })();
+
 </script>
 </body>
 </html>

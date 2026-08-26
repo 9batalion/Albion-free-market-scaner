@@ -1,4 +1,15 @@
-# Albion Europe Market Scanner v5.5.5 — poprawiona i zweryfikowana rafinacja
+# Albion Europe Market Scanner v5.5.6 — pełna kontrola surowców T3
+
+## Zmiana v5.5.6
+
+- dodano preset „Wszystkie surowce T3”, który ustawia surowce podstawowe i przetworzone, wszystkie ulepszenia, główne miasta i limit 0,
+- preset tylko konfiguruje skaner — pierwszy skan nadal trzeba uruchomić ręcznie,
+- po skanie osobna tabela pokazuje każdy wybrany surowiec T3, również bez ceny, bez kompletnej trasy lub bez dodatniego zysku,
+- dla każdego surowca widoczna jest najtańsza oferta zakupu, najwyższy buy order, miasta oraz pełne czasy odczytu AODP,
+- status wyjaśnia wprost: zyskowna trasa, cena bez dodatniego zysku, brak ceny albo błąd API,
+- dodano osobny eksport CSV wszystkich surowców T3; dotychczasowy eksport okazji pozostaje bez zmian.
+
+## Funkcje odziedziczone z v5.5.5
 
 ## Zmiana v5.5.5
 
